@@ -10,7 +10,7 @@ powerInsight: powerInsight.o
 .PHONY: clean
 
 clean:
-	$(RM) powerInsight initial.lc
+	$(RM) powerInsight *.lc *.o
 
 # Use Lua compiler to convert .lua to .lc
 %.lc: %.lua
