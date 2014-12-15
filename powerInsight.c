@@ -8,9 +8,11 @@
  *   including temperature expansion board.
  * Provide readings via command line and library for linking with PIAPI
  *   effort from Sandia National Lab.
+ * Assumes Lua 5.1.4
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
@@ -24,15 +26,18 @@ char * ARGV0 = "powerInsight" ;
 char * configfile = "/etc/powerinsight.conf" ;  /* DEFAULT_CONFIGFILE */
 char * libexecdir = "/usr/lib/powerinsight" ;  /* DEFAULT_LIBDIR */
 lua_State * L = NULL ;
-unigned int  debug = 0 ;
+unsigned int  debug = 0 ;
 #define DBG_LUA   0x0001
 #define DBG_SPI   0x0002
 int verbose = 0 ;  /* -1 = quiet, 1 = more detail */
 
+/* Shared space */
+char buffer[1024];
+
 /* Parse options.
  * Return 0 if OK, -1 if error (print usage and exit)
  */
-int parseOptions( argc, char** argv )
+int parseOptions( int argc, char** argv )
 {
    int  option ;
    int  usage = 0 ;
@@ -85,10 +90,99 @@ void usage( )
 "             Vcc -- Main carrier Vcc\n"
 "             T1, T2, ..., T6, T7, T8\n"
 "             TJ1, TJ2 -- Temp carrier junction temps\n"
+         "",
          ARGV0 );
    exit( 1 );
 }
 
+int main( int argc, char ** argv )
+{
+   int ret ;
+
+   if( parseOptions( argc, argv ) )
+      usage( );
+   if( verbose ) {
+      fprintf( stderr,
+            "Configfile: %s\n"
+            "Library dir: %s\n"
+            "Debug flags: 0x%04x\n"
+            "Verbosity: %d\n",
+            configfile,
+            libexecdir,
+            debug,
+            verbose
+         );
+   }
+
+   /* Create a Lua instance */
+   L = luaL_newstate( );
+   if( L == NULL ) {
+      fprintf( stderr, "%s: Memory allocation error creating Lua instance.\n", ARGV0 );
+      exit( 1 );
+   }
+
+   /* Load initial state */
+   luaL_openlibs( L );
+   strcpy( buffer, libexecdir );
+   strcat( buffer, "/initial.lc" );
+   ret = luaL_loadfile( L, buffer );
+   if( ret != 0 ) {
+      if( ret == LUA_ERRSYNTAX ) {
+         fprintf( stderr, "%s: Syntax error in '%s'  Try recompiling.\n",
+                     ARGV0, buffer );
+      } else if( ret == LUA_ERRFILE ) {
+         fprintf( stderr, "%s: Unable to open/read initial state: %s\n",
+                     ARGV0, buffer );
+      } else if( ret == LUA_ERRMEM ) {
+         fprintf( stderr, "%s: Memory allocation error loading initial state: %s\n",
+                     ARGV0, buffer );
+      } else {
+         fprintf( stderr, "%s: Unexpected error (%d) loading initial state: %s\n",
+                     ARGV0, ret, buffer );
+      }
+      exit( 1 );
+   }
+   ret = lua_pcall( L, 0, LUA_MULTRET, 0);
+   if( ret != 0 ) {
+      if( ret == LUA_ERRRUN ) {
+         fprintf( stderr, "%s: Runtime error executing initial state\n", ARGV0 );
+      } else if( ret == LUA_ERRMEM ) {
+         fprintf( stderr, "%s: Memory allocation error executing initial state\n", ARGV0 );
+      } else if( ret == LUA_ERRERR ) {
+         fprintf( stderr, "%s: Double fault executing initial state\n", ARGV0 );
+      }
+      exit( 1 );
+   }
+   ret = luaL_loadfile( L, configfile );
+   if( ret != 0 ) {
+      if( ret == LUA_ERRSYNTAX ) {
+         fprintf( stderr, "%s: Syntax error in config file: %s\n",
+                     ARGV0, configfile );
+      } else if( ret == LUA_ERRFILE ) {
+         fprintf( stderr, "%s: Unable to open/read config file: %s\n",
+                     ARGV0, configfile );
+      } else if( ret == LUA_ERRMEM ) {
+         fprintf( stderr, "%s: Memory allocation error loading config file: %s\n",
+                     ARGV0, configfile );
+      } else {
+         fprintf( stderr, "%s: Unexpected error (%d) loading config file: %s\n",
+                     ARGV0, ret, configfile );
+      }
+      exit( 1 );
+   }
+   ret = lua_pcall( L, 0, LUA_MULTRET, 0);
+   if( ret != 0 ) {
+      if( ret == LUA_ERRRUN ) {
+         fprintf( stderr, "%s: Runtime error executing config file\n", ARGV0 );
+      } else if( ret == LUA_ERRMEM ) {
+         fprintf( stderr, "%s: Memory allocation error executing config file\n", ARGV0 );
+      } else if( ret == LUA_ERRERR ) {
+         fprintf( stderr, "%s: Double fault executing config file\n", ARGV0 );
+      }
+      exit( 1 );
+   }
+
+}
 
 
 /* vim: set sw=3 sta et : */
