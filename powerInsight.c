@@ -105,7 +105,7 @@ int main( int argc, char ** argv )
       fprintf( stderr,
             "Configfile: %s\n"
             "Library dir: %s\n"
-            "Debug flags: 0x%04x\n"
+            "Debug flags: 0x%08x\n"
             "Verbosity: %d\n",
             configfile,
             libexecdir,
@@ -122,66 +122,33 @@ int main( int argc, char ** argv )
    }
 
    /* Load initial state */
-   luaL_openlibs( L );
+   luaL_openlibs( L );  /* Standard libraries */
+
+   /* Register Power Insight library */
+   pi_register( L );
+
+   /* Finish initialization with Lua code */
    strcpy( buffer, libexecdir );
    strcat( buffer, "/initial.lc" );
    ret = luaL_loadfile( L, buffer );
-   if( ret != 0 ) {
-      if( ret == LUA_ERRSYNTAX ) {
-         fprintf( stderr, "%s: Syntax error in '%s'  Try recompiling.\n",
-                     ARGV0, buffer );
-      } else if( ret == LUA_ERRFILE ) {
-         fprintf( stderr, "%s: Unable to open/read initial state: %s\n",
-                     ARGV0, buffer );
-      } else if( ret == LUA_ERRMEM ) {
-         fprintf( stderr, "%s: Memory allocation error loading initial state: %s\n",
-                     ARGV0, buffer );
-      } else {
-         fprintf( stderr, "%s: Unexpected error (%d) loading initial state: %s\n",
-                     ARGV0, ret, buffer );
-      }
-      exit( 1 );
-   }
-   ret = lua_pcall( L, 0, LUA_MULTRET, 0);
-   if( ret != 0 ) {
-      if( ret == LUA_ERRRUN ) {
-         fprintf( stderr, "%s: Runtime error executing initial state\n", ARGV0 );
-      } else if( ret == LUA_ERRMEM ) {
-         fprintf( stderr, "%s: Memory allocation error executing initial state\n", ARGV0 );
-      } else if( ret == LUA_ERRERR ) {
-         fprintf( stderr, "%s: Double fault executing initial state\n", ARGV0 );
-      }
-      exit( 1 );
-   }
-   ret = luaL_loadfile( L, configfile );
-   if( ret != 0 ) {
-      if( ret == LUA_ERRSYNTAX ) {
-         fprintf( stderr, "%s: Syntax error in config file: %s\n",
-                     ARGV0, configfile );
-      } else if( ret == LUA_ERRFILE ) {
-         fprintf( stderr, "%s: Unable to open/read config file: %s\n",
-                     ARGV0, configfile );
-      } else if( ret == LUA_ERRMEM ) {
-         fprintf( stderr, "%s: Memory allocation error loading config file: %s\n",
-                     ARGV0, configfile );
-      } else {
-         fprintf( stderr, "%s: Unexpected error (%d) loading config file: %s\n",
-                     ARGV0, ret, configfile );
-      }
-      exit( 1 );
-   }
-   ret = lua_pcall( L, 0, LUA_MULTRET, 0);
-   if( ret != 0 ) {
-      if( ret == LUA_ERRRUN ) {
-         fprintf( stderr, "%s: Runtime error executing config file\n", ARGV0 );
-      } else if( ret == LUA_ERRMEM ) {
-         fprintf( stderr, "%s: Memory allocation error executing config file\n", ARGV0 );
-      } else if( ret == LUA_ERRERR ) {
-         fprintf( stderr, "%s: Double fault executing config file\n", ARGV0 );
-      }
-      exit( 1 );
+   if( ret != 0 || (ret = lua_pcall( L, 0, 0, 0 )) ) {
+      strcpy( buffer, "Load/run " );
+      strcat( buffer, libexecdir );
+      strcat( buffer, "/initial.lc" );
+      luaPI_doerror( L, ret, buffer );
    }
 
+   /* Now read the config file */
+   ret = luaL_loadfile( L, configfile );
+   if( ret != 0 || (ret = lua_pcall( L, 0, LUA_MULTRET, 0 )) ) {
+      strcpy( buffer, "Processing config file " );
+      strcat( buffer, configfile );
+      luaPI_doerror( L, ret, buffer );
+   }
+   if( (debug & DBG_LUA) && lua_gettop( L ) ) {
+      fprintf( stderr, "Config file returned %d values. Ignored\n", lua_gettop(L) );
+   }
+   lua_pop(L, lua_gettop(L));
 }
 
 

@@ -3,10 +3,9 @@ T = { } -- Temperature channels
 J = { } -- Power rails
 E = { } -- Expansion connectors
 
-do -- Create pi (Power Insight) package
-local P = {}
+do -- Create/extend pi (Power Insight) package
+local P = package.loaded["pi"] or {}
 
---[[
 local function private()
     print("in private function")
 end
@@ -21,7 +20,6 @@ local function bar()
     foo()
 end
 P.bar = bar
-]]--
 
 pi = P -- ie. return P
 end

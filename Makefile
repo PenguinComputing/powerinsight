@@ -1,11 +1,11 @@
 # Makefile for Power Insight
 CC=gcc
-CFLAGS=-g -O
+CFLAGS=-g -O -I/usr/include/lua5.1
 
 all: powerInsight initial.lc
 
-powerInsight: powerInsight.o
-	$(CC) -o $@ $< -lm -llua
+powerInsight: powerInsight.o pilib.o
+	$(CC) -o $@ $+ -lm -llua5.1
 
 .PHONY: clean
 
@@ -17,5 +17,6 @@ clean:
 	luac -o $@ $<
 
 # Dependencies (makedep?)
-powerInsight.o: powerInsight.c powerInsight.h
+powerInsight.o: powerInsight.c powerInsight.h pilib.h
+pilib.o: pilib.c pilib.h
 
