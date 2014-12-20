@@ -1,0 +1,4 @@
+# Compiler products
+*.o
+*.lc
+powerInsight
