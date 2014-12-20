@@ -2,7 +2,7 @@
 CC=gcc
 CFLAGS=-g -O -I/usr/include/lua5.1
 
-all: powerInsight initial.lc
+all: powerInsight init_final.lc
 
 powerInsight: powerInsight.o pilib.o
 	$(CC) -o $@ $+ -lm -llua5.1

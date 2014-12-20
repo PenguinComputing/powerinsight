@@ -19,11 +19,13 @@
 #include "pilib.h"
 
 luaL_Reg pi_funcs[] = {
+         {"open",        pi_open},
          {"ioctl",       pi_ioctl},
-         {"setbank",     pi_setbank},
+         {"write",       pi_write},
          {"init_ads1256", pi_init_ads1256},
          {"init_ads8344", pi_init_ads8344},
          {"init_sc620",  pi_init_sc620},
+         {"setbank",     pi_setbank},
          {"getraw_temp", pi_getraw_temp},
          {"getraw_volt", pi_getraw_volt},
          {"getraw_amp",  pi_getraw_amp},
@@ -36,11 +38,13 @@ luaL_Reg pi_funcs[] = {
          {NULL, NULL},
          };
 
+int pi_open(lua_State * L) { return 0 ; };
 int pi_ioctl(lua_State * L) { printf( "THIS is pi_ioctl\n" ); return 0 ; };
-int pi_setbank(lua_State * L) { return 0 ; };
+int pi_write(lua_State * L) { return 0 ; };
 int pi_init_ads1256(lua_State * L) { return 0 ; };
 int pi_init_ads8344(lua_State * L) { return 0 ; };
 int pi_init_sc620(lua_State * L) { return 0 ; };
+int pi_setbank(lua_State * L) { return 0 ; };
 int pi_getraw_temp(lua_State * L) { return 0 ; };
 int pi_getraw_volt(lua_State * L) { return 0 ; };
 int pi_getraw_amp(lua_State * L) { return 0 ; };
@@ -64,19 +68,19 @@ int pi_register( lua_State *L )
    /* Add some "constants" we'll need */
    /* #defines for ioctl() */
 
+   /* FIXME: BE CAREFUL. This probably belongs in "init_final.lua"
+    *    which typicall runs immediately after pi_register()
+    *    Only put things here which are required to finalize
+    *    pi_register and more easily done in Lua than in C
+    */
    /* dostring "init" for initialization from lua */
    ret = luaL_loadstring(L, 
 /**** BEGIN LUA CODE ****/
-"print( \"pi: \", tostring( pi ))\n"
-"pi.init = function () print(\"pi.init called\"); end\n"
 "pi.version = 0.1\n"
-"pi.init( )\n"
-"pi.ioctl( )\n"
-"print( \"pi: \", tostring( pi ))\n"
-      );
 /**** END LUA CODE ****/
+      );
    if( ret != 0 || (ret = lua_pcall(L, 0, 0, 0)) ) {
-      luaPI_doerror( L, ret, "Load/run 'pi' package init script" );
+      luaPI_doerror( L, ret, "Load/run 'pi_register' finalize script" );
       exit( 1 );
    }
 
@@ -108,7 +112,7 @@ void luaPI_doerror( lua_State * L, int ret, const char * attempt )
                      ARGV0, attempt, ret );
       }
       if( errstr = luaL_checkstring( L, -1 ) ) {
-         fprintf( stderr, "%s: TOS: %s\n", ARGV0, errstr );
+         fprintf( stderr, "%s:%s\n", ARGV0, errstr );
       }
       exit( 1 );
    }

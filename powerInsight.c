@@ -129,12 +129,12 @@ int main( int argc, char ** argv )
 
    /* Finish initialization with Lua code */
    strcpy( buffer, libexecdir );
-   strcat( buffer, "/initial.lc" );
+   strcat( buffer, "/init_final.lc" );
    ret = luaL_loadfile( L, buffer );
    if( ret != 0 || (ret = lua_pcall( L, 0, 0, 0 )) ) {
       strcpy( buffer, "Load/run " );
       strcat( buffer, libexecdir );
-      strcat( buffer, "/initial.lc" );
+      strcat( buffer, "/init_final.lc" );
       luaPI_doerror( L, ret, buffer );
    }
 

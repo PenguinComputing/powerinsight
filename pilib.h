@@ -15,11 +15,13 @@
 extern char * ARGV0 ;
 
 /* Library methods */
+int pi_open(lua_State * L);
+int pi_write(lua_State * L);
 int pi_ioctl(lua_State * L);
-int pi_setbank(lua_State * L);
 int pi_init_ads1256(lua_State * L);
 int pi_init_ads8344(lua_State * L);
 int pi_init_sc620(lua_State * L);
+int pi_setbank(lua_State * L);
 int pi_getraw_temp(lua_State * L);
 int pi_getraw_volt(lua_State * L);
 int pi_getraw_amp(lua_State * L);
