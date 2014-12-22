@@ -1,4 +1,5 @@
 # Compiler products
 *.o
 *.lc
+*.d
 powerInsight

@@ -28,19 +28,21 @@ extern char * configfile ;
 #define PICONFIGFILE_DEFAULT "/etc/powerinsight.conf"
 #endif
 
-/* Debug/verbose flags */
-extern unsigned int  debug ;
+/* General verbosity */
+extern int verbose ;
+/* -1 = quiet, 0 = normal detail, 1+ = more detail */
+#ifndef PIVERBOSE_DEFAULT
+#define PIVERBOSE_DEFAULT 0
+#endif
 
-/* 0 = quiet, 1 = normal detail, 2+ = more detail */
-#define VERBOSE   0x000f
-#define DBG_LUA   0x0010
-#define DBG_SPI   0x0020
+/* Debug flags */
+extern unsigned int  debug ;
+#define DBG_LUA   0x0001
+#define DBG_SPI   0x0002
 
 #ifndef PIDEBUG_DEFAULT
-#define PIDEBUG_DEFAULT (1 & VERBOSE)
+#define PIDEBUG_DEFAULT 0
 #endif
-#define verbose  (debug & VERBOSE)
-extern int verbose_set( int v );
 
 /* Import the library into a Lua instance */
 int pi_register(lua_State * L);

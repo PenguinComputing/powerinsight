@@ -17,10 +17,13 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include "pilib.h"
+#include "piglobal.h"
 
 luaL_Reg pi_funcs[] = {
          {"open",        pi_open},
-         {"ioctl",       pi_ioctl},
+         {"spi_mode",    pi_spi_mode},
+         {"spi_maxspeed", pi_spi_maxspeed},
+         {"spi_message", pi_spi_message},
          {"write",       pi_write},
          {"init_ads1256", pi_init_ads1256},
          {"init_ads8344", pi_init_ads8344},
@@ -38,35 +41,67 @@ luaL_Reg pi_funcs[] = {
          {NULL, NULL},
          };
 
-int pi_open(lua_State * L) { return 0 ; };
-int pi_ioctl(lua_State * L) { printf( "THIS is pi_ioctl\n" ); return 0 ; };
-int pi_write(lua_State * L) { return 0 ; };
-int pi_init_ads1256(lua_State * L) { return 0 ; };
-int pi_init_ads8344(lua_State * L) { return 0 ; };
-int pi_init_sc620(lua_State * L) { return 0 ; };
-int pi_setbank(lua_State * L) { return 0 ; };
-int pi_getraw_temp(lua_State * L) { return 0 ; };
-int pi_getraw_volt(lua_State * L) { return 0 ; };
-int pi_getraw_amp(lua_State * L) { return 0 ; };
-int pi_volt2temp_K(lua_State * L) { return 0 ; };
-int pi_temp2volt_K(lua_State * L) { return 0 ; };
-int pi_rt2temp_PTS(lua_State * L) { return 0 ; };
-int pi_temp2rt_PTS(lua_State * L) { return 0 ; };
-int pi_setled_temp(lua_State * L) { return 0 ; };
-int pi_setled_main(lua_State * L) { return 0 ; };
+int pi_open(lua_State * L) { return 0 ; }
+int pi_write(lua_State * L) { return 0 ; }
+int pi_init_ads1256(lua_State * L) { return 0 ; }
+int pi_init_ads8344(lua_State * L) { return 0 ; }
+int pi_init_sc620(lua_State * L) { return 0 ; }
+int pi_setbank(lua_State * L) { return 0 ; }
+int pi_getraw_temp(lua_State * L) { return 0 ; }
+int pi_getraw_volt(lua_State * L) { return 0 ; }
+int pi_getraw_amp(lua_State * L) { return 0 ; }
+int pi_volt2temp_K(lua_State * L) { return 0 ; }
+int pi_temp2volt_K(lua_State * L) { return 0 ; }
+int pi_rt2temp_PTS(lua_State * L) { return 0 ; }
+int pi_temp2rt_PTS(lua_State * L) { return 0 ; }
+int pi_setled_temp(lua_State * L) { return 0 ; }
+int pi_setled_main(lua_State * L) { return 0 ; }
 
+
+/* Load the pi library into a lua_State */
 int pi_register( lua_State *L )
 {
    int  ret ;
 
-   /* FIXME: Update for Lua 5.2, to use luaL_setfuncs but
-    *   do the same thing, ie: create global package "pi"
-    *   with these functions
+   /* We assume an empty stack, ie, no arguments */
+   if( lua_gettop( L ) != 0 ) {
+      fputs( "WARNING: pi_register called with non-empty stack. Dropped\n", stderr );
+      lua_settop( L, 0 );
+   }
+   
+   /* FIXME: For Lua 5.2, use luaL_setfuncs but do the
+    *   same thing, ie: create global reference to package
+    *   "pi" with these functions
     */
    luaL_register( L, "pi", pi_funcs );
+   /* NOTE: table pi is left on the stack */
 
    /* Add some "constants" we'll need */
    /* #defines for ioctl() */
+   lua_pushlightuserdata( L, (void *)SPI_CPHA );
+   lua_setfield( L, -2, "SPI_CPHA" );
+   lua_pushlightuserdata( L, (void *)SPI_CPOL );
+   lua_setfield( L, -2, "SPI_CPOL" );
+   lua_pushlightuserdata( L, (void *)SPI_MODE_0 );
+   lua_setfield( L, -2, "SPI_MODE_0" );
+   lua_pushlightuserdata( L, (void *)SPI_MODE_1 );
+   lua_setfield( L, -2, "SPI_MODE_1" );
+   lua_pushlightuserdata( L, (void *)SPI_MODE_2 );
+   lua_setfield( L, -2, "SPI_MODE_2" );
+   lua_pushlightuserdata( L, (void *)SPI_MODE_3 );
+   lua_setfield( L, -2, "SPI_MODE_3" );
+   /* There are other "mode" bits but we don't need them
+    *    right now, so don't create them
+    *    SPI_CS_HIGH, SPI_LSB_FIRST, SPI_3WIRE
+    *    SPI_LOOP, SPI_NO_CS, SPI_READY
+    * Also, we have discrete functions for the different
+    *    ioctl calls. (spi_mode, spi_message, etc.)
+    */
+
+   /* Other constants?
+   lua_pushlightuserdata( L, (void *)XXX );
+   lua_setfield( L, -2, "XXX" );
+    */
 
    /* FIXME: BE CAREFUL. This probably belongs in "init_final.lua"
     *    which typicall runs immediately after pi_register()
@@ -88,6 +123,7 @@ int pi_register( lua_State *L )
    return 0 ;
 }
 
+/* Helper for printing more verbose error texts when "do"'ing Lua code */
 void luaPI_doerror( lua_State * L, int ret, const char * attempt )
 {
    const char * errstr ;

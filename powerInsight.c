@@ -20,16 +20,16 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include "powerInsight.h"
+#include "piglobal.h"
 
 /* Global variables */
-char * ARGV0 = "powerInsight" ;
-char * configfile = "/etc/powerinsight.conf" ;  /* DEFAULT_CONFIGFILE */
-char * libexecdir = "/usr/lib/powerinsight" ;  /* DEFAULT_LIBDIR */
+char *  ARGV0 = "powerInsight" ;
+char *  libexecdir = PILIBDIR_DEFAULT ;
+char *  configfile = PICONFIGFILE_DEFAULT ;
+unsigned int  debug = PIDEBUG_DEFAULT ;
+int  verbose = PIVERBOSE_DEFAULT ;
+
 lua_State * L = NULL ;
-unsigned int  debug = 0 ;
-#define DBG_LUA   0x0001
-#define DBG_SPI   0x0002
-int verbose = 0 ;  /* -1 = quiet, 1 = more detail */
 
 /* Shared space */
 char buffer[1024];
@@ -45,13 +45,14 @@ int parseOptions( int argc, char** argv )
    /* Save command name for errors and other output */
    ARGV0 = argv[0] ;
 
-   while( -1 != (option = getopt( argc, argv, "uvd:c:D:" )) ) {
+   while( -1 != (option = getopt( argc, argv, "uvqd:c:D:" )) ) {
       switch( option ) {
 
       case '?' : /* fallthrough */
       case 'u' : usage = -1 ; break ;
 
       case 'v' : ++verbose ; break ;
+      case 'q' : verbose = -1 ; break ;
       case 'd' :
          debug |= strtoul( optarg, NULL, 0 );
          if( verbose >= 2 )
@@ -59,12 +60,12 @@ int parseOptions( int argc, char** argv )
          break ;
       case 'c' :
          configfile = optarg ;
-         if( verbose >= 1 )
+         if( verbose >= 2 )
             fprintf( stderr, "Configfile now: %s\n", configfile );
          break ;
       case 'D' :
          libexecdir = optarg ;
-         if( verbose >= 1 )
+         if( verbose >= 2 )
             fprintf( stderr, "Library directory now: %s\n", libexecdir );
          break ;
       }
@@ -81,6 +82,7 @@ void usage( )
 "where:\n"
 "   -u  print this usage menu\n"
 "   -v  increments verbosity\n"
+"   -q  quiet mode\n"
 "   -d  set one or more debug flags (bitmask)\n"
 "   -c  specify location of configuration file\n"
 "   -D  specify prefix for library files\n"
@@ -101,7 +103,7 @@ int main( int argc, char ** argv )
 
    if( parseOptions( argc, argv ) )
       usage( );
-   if( verbose ) {
+   if( verbose >= 1 ) {
       fprintf( stderr,
             "Configfile: %s\n"
             "Library dir: %s\n"
@@ -146,10 +148,9 @@ int main( int argc, char ** argv )
       luaPI_doerror( L, ret, buffer );
    }
    if( (debug & DBG_LUA) && lua_gettop( L ) ) {
-      fprintf( stderr, "Config file returned %d values. Ignored\n", lua_gettop(L) );
+      fprintf( stderr, "Config file returned %d values. Ignored\n", lua_gettop( L ) );
    }
-   lua_pop(L, lua_gettop(L));
+   lua_pop( L, lua_gettop( L ));
 }
-
 
 /* vim: set sw=3 sta et : */

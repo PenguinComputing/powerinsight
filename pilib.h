@@ -11,13 +11,12 @@
 
 #include <lua.h>
 
-/* Import Globals */
-extern char * ARGV0 ;
-
 /* Library methods */
 int pi_open(lua_State * L);
 int pi_write(lua_State * L);
-int pi_ioctl(lua_State * L);
+int pi_spi_mode(lua_State * L);
+int pi_spi_maxspeed(lua_State * L);
+int pi_spi_message(lua_State * L);
 int pi_init_ads1256(lua_State * L);
 int pi_init_ads8344(lua_State * L);
 int pi_init_sc620(lua_State * L);
@@ -31,12 +30,6 @@ int pi_rt2temp_PTS(lua_State * L);
 int pi_temp2rt_PTS(lua_State * L);
 int pi_setled_temp(lua_State * L);
 int pi_setled_main(lua_State * L);
-
-/* Internal function */
-int pi_register(lua_State * L);
-
-/* Private Lua helpers */
-void luaPI_doerror( lua_State * L, int ret, const char * attempt );
 
 #endif /* PILIB_H */
 
