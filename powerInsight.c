@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <unistd.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -29,6 +28,7 @@ char *  configfile = PICONFIGFILE_DEFAULT ;
 unsigned int  debug = PIDEBUG_DEFAULT ;
 int  verbose = PIVERBOSE_DEFAULT ;
 
+/* The Lua state */
 lua_State * L = NULL ;
 
 /* Shared space */
@@ -37,6 +37,7 @@ char buffer[1024];
 /* Parse options.
  * Return 0 if OK, -1 if error (print usage and exit)
  */
+extern int optind ;
 int parseOptions( int argc, char** argv )
 {
    int  option ;
@@ -99,6 +100,7 @@ void usage( )
 
 int main( int argc, char ** argv )
 {
+   int i ;
    int ret ;
 
    if( parseOptions( argc, argv ) )
@@ -151,6 +153,33 @@ int main( int argc, char ** argv )
       fprintf( stderr, "Config file returned %d values. Ignored\n", lua_gettop( L ) );
    }
    lua_pop( L, lua_gettop( L ));
+
+   /* Post-configfile initialization with Lua code */
+   strcpy( buffer, libexecdir );
+   strcat( buffer, "/post_conf.lc" );
+   ret = luaL_loadfile( L, buffer );
+   if( ret != 0 || (ret = lua_pcall( L, 0, 0, 0 )) ) {
+      strcpy( buffer, "Load/run " );
+      strcat( buffer, libexecdir );
+      strcat( buffer, "/post_conf.lc" );
+      luaPI_doerror( L, ret, buffer );
+   }
+
+   /* Push all args and Run "App" */
+   if( ! lua_checkstack( L, argc - optind +2 ) ) {
+      fprintf( stderr, "%s: Too many arguments\n", ARGV0 );
+      exit( 1 );
+   }
+   lua_getfield( L, LUA_GLOBALSINDEX, "App" );
+   for( i = optind ; i < argc ; ++i ) {
+      lua_pushstring( L, argv[i] );
+   }
+   ret = lua_pcall( L, argc - optind, 0, 0 );
+   if( ret != 0 ) {
+      luaPI_doerror( L, ret, "Running application 'App'" );
+   }
+
+   return 0 ;
 }
 
 /* vim: set sw=3 sta et : */

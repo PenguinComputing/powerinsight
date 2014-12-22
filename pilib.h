@@ -14,6 +14,7 @@
 /* Library methods */
 int pi_open(lua_State * L);
 int pi_write(lua_State * L);
+int pi_read(lua_State * L);
 int pi_spi_mode(lua_State * L);
 int pi_spi_maxspeed(lua_State * L);
 int pi_spi_message(lua_State * L);

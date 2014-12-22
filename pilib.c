@@ -25,6 +25,7 @@ luaL_Reg pi_funcs[] = {
          {"spi_maxspeed", pi_spi_maxspeed},
          {"spi_message", pi_spi_message},
          {"write",       pi_write},
+         {"read",        pi_read},
          {"init_ads1256", pi_init_ads1256},
          {"init_ads8344", pi_init_ads8344},
          {"init_sc620",  pi_init_sc620},
@@ -41,8 +42,6 @@ luaL_Reg pi_funcs[] = {
          {NULL, NULL},
          };
 
-int pi_open(lua_State * L) { return 0 ; }
-int pi_write(lua_State * L) { return 0 ; }
 int pi_init_ads1256(lua_State * L) { return 0 ; }
 int pi_init_ads8344(lua_State * L) { return 0 ; }
 int pi_init_sc620(lua_State * L) { return 0 ; }
