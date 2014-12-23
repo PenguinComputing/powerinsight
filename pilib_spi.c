@@ -292,6 +292,8 @@ int pi_spi_message(lua_State * L)
                fprintf( stderr, ":%02x", p[i] );
             }
             fputc( ' ', stderr );
+         } else {
+            fprintf( stderr, "len=%d ", msgs[cmsg].len );
          }
          fputs( " RX", stderr );
          p = (__u8 *) msgs[cmsg].rx_buf ;
