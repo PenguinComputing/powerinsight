@@ -50,11 +50,6 @@ int pi_getraw_temp(lua_State * L) { return 0 ; }
 int pi_getraw_volt(lua_State * L) { return 0 ; }
 int pi_getraw_amp(lua_State * L) { return 0 ; }
 
-int pi_volt2temp_K(lua_State * L) { return 0 ; }
-int pi_temp2volt_K(lua_State * L) { return 0 ; }
-int pi_rt2temp_PTS(lua_State * L) { return 0 ; }
-int pi_temp2rt_PTS(lua_State * L) { return 0 ; }
-
 int pi_setled_temp(lua_State * L) { return 0 ; }
 int pi_setled_main(lua_State * L) { return 0 ; }
 

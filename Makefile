@@ -4,7 +4,7 @@ CFLAGS=-MMD -g -O -I/usr/include/lua5.1 -I$(PWD)/.
 
 all: powerInsight init_final.lc post_conf.lc
 
-powerInsight: powerInsight.o pilib.o pilib_spi.o pilib_io.o
+powerInsight: powerInsight.o pilib.o pilib_spi.o pilib_io.o pilib_temp.o
 	$(CC) -o $@ $+ -lm -llua5.1
 
 .PHONY: clean depclean
