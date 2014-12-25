@@ -94,6 +94,13 @@ int pi_register( lua_State *L )
     *    ioctl calls. (spi_mode, spi_message, etc.)
     */
 
+   /* From global environment */
+   lua_pushstring( L, ARGV0 );
+   lua_setfield( L, -2, "ARGV0" );
+   lua_pushinteger( L, verbose );
+   lua_setfield( L, -2, "verbose" );
+   /* FIXME: Include debug when Lua gets usable bitwise operators */
+
    /* Other constants?
    lua_pushlightuserdata( L, (void *)XXX );
    lua_setfield( L, -2, "XXX" );

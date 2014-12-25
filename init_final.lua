@@ -6,8 +6,8 @@ E = { } -- Expansion connectors
 do -- Create/extend pi (Power Insight) package
 local P = package.loaded["pi"] or {}
 
-if pi.version != "v0.1" then
-   io.stderr:write( pi.ARGV0, ": WARNING: Version mismatch between binary and .lua code\n"
+if pi.version ~= "v0.1" then
+   io.stderr:write( pi.ARGV0, ": WARNING: Version mismatch between binary and .lua code\n" )
 end
 
 --[[
