@@ -107,7 +107,7 @@ int pi_register( lua_State *L )
    /* dostring "init" for initialization from lua */
    ret = luaL_loadstring(L, 
 /**** BEGIN LUA CODE ****/
-"pi.version = 0.1\n"
+"pi.version = 'v0.1'\n"
 /**** END LUA CODE ****/
       );
    if( ret != 0 || (ret = lua_pcall(L, 0, 0, 0)) ) {

@@ -1,10 +1,14 @@
--- Initialization of Lua environment
+-- Final Initialization of Lua Environment Before .CONF File
 T = { } -- Temperature channels
 J = { } -- Power rails
 E = { } -- Expansion connectors
 
 do -- Create/extend pi (Power Insight) package
 local P = package.loaded["pi"] or {}
+
+if pi.version != "v0.1" then
+   io.stderr:write( pi.ARGV0, ": WARNING: Version mismatch between binary and .lua code\n"
+end
 
 --[[
 local function private()
