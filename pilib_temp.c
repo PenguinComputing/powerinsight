@@ -80,7 +80,7 @@ double posTempAdj( double t )
 }
 
 
-/******* miliVolts to Temp ********/
+/******* milliVolts to Temp ********/
 #define invNegmVLIMIT  -5.891
 static const double invNegmV[] = {  /* -200-0 degC, -5.891 to 0 mV */
          0.0000000E+00,
@@ -143,7 +143,7 @@ int pi_volt2temp_K(lua_State * L)
 
    reading = luaL_checknumber( L, 1 );
    vref = luaL_optnumber( L, 2, 1.0 );
-   reading *= vref * 1000.0 ;  /* to mili-Volts */
+   reading *= vref * 1000.0 ;  /* to milli-Volts */
    if( reading < invNegmVLIMIT || reading > invPosmVLIMIT ) {
       return luaL_error( L, "bad arguments to volt2temp_K, out of range [%f,%f]", invNegmVLIMIT/1000.0, invPosmVLIMIT/1000.0 );
    }
