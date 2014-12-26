@@ -91,6 +91,9 @@ const struct ads1256_rate * getrateinfo( int rate )
 {
    int  idx ;
 
+   if( verbose > 1 ) {
+      fprintf( stderr, "Asked for info on rate: %d\n", rate );
+   }
    if( rate >= ads1256_rate_tbl[0].rate ) {
       return ads1256_rate_tbl +0 ;
    } else if( rate <= ads1256_rate_tbl[ads1256_rate_tbl_size-2].rate ) {
@@ -112,6 +115,9 @@ const struct ads1256_rate * getrateinfo( int rate )
       } else {
          break ;
       }
+   }
+   if( verbose > 1 ) {
+      fprintf( stderr, "Replying with: %d [%d]\n", idx, ads1256_rate_tbl[idx].rate );
    }
    return ads1256_rate_tbl + idx ;
 } 
@@ -197,6 +203,7 @@ static int wait4DRDY( int fd, double timeout )
    } while( bufs[4] & 1 );
 
    if( debug & DBG_SPI ) {
+      gettimeofday( &now, NULL );
       fprintf( stderr, "DBG: wait4DRDY(%d) took: %.6f sec, %lu loops, DRDY = %d\n",
             fd, now.tv_sec-start.tv_sec + (now.tv_usec-start.tv_usec)/1000000.0,
             loops,
@@ -340,13 +347,13 @@ int pi_ads1256_init(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) RDATA: %s", fd, strerror(errno) );
    }
 
-   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / (reg2gain(gainreg) * 0x800000);
+   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / (reg2gain(gainreg) * 0x400000);
 
    /* Get ofc, fsc */
    memset( msgs, 0, sizeof(msgs) );
    msgs[0].tx_buf = (__u64) bufs +0 ;
-   msgs[0].len = 1 ;
-   bufs[0] = 0x55 ;  /* RREG [5] */
+   msgs[0].len = 2 ;
+   bufs[0] = 0x15 ;  /* RREG [5] */
    bufs[1] = 0x05 ;  /* +5 more */
    msgs[0].delay_usecs = 8 ;  /* T6: 50 clock periods at 8 MHz */
    msgs[1].rx_buf = (__u64) bufs +4 ;
@@ -357,7 +364,16 @@ int pi_ads1256_init(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) RREG [OFC, FSC]: %s", fd, strerror(errno) );
    }
 
-   ofc = (double)((bufs[4]) | (bufs[5]<<8) | (bufs[6]<<16)) / rateinfo->alpha ;
+   if( verbose > 1 ) {
+      fprintf( stderr, "OFC: 0x%06x  FSC: 0x%06x\n  A: 0x%06x  FSC: 0x%06x\n",
+         (bufs[4]) | (bufs[5]<<8) | ((signed char)bufs[6]<<16),
+         (bufs[7]) | (bufs[8]<<8) | (bufs[9]<<16),
+         rateinfo->alpha,
+         rateinfo->fsc
+      );
+   }
+
+   ofc = (double)((bufs[4]) | (bufs[5]<<8) | ((signed char)bufs[6]<<16)) / rateinfo->alpha ;
    fsc = (double)((bufs[7]) | (bufs[8]<<8) | (bufs[9]<<16)) / rateinfo->fsc ;
 
    lua_pushnumber( L, reading );
@@ -403,7 +419,7 @@ int pi_ads1256_getraw(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) RDATA: %s", fd, strerror(errno) );
    }
 
-   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / (reg2gain(gain2reg(gain)) * 0x800000);
+   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / (reg2gain(gain2reg(gain)) * 0x400000);
 
    lua_pushnumber( L, reading );
    return 1 ;
