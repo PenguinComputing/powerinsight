@@ -26,9 +26,11 @@ luaL_Reg pi_funcs[] = {
          {"spi_message", pi_spi_message},
          {"write",       pi_write},
          {"read",        pi_read},
-         {"init_ads1256", pi_init_ads1256},
-         {"init_ads8344", pi_init_ads8344},
-         {"init_sc620",  pi_init_sc620},
+         {"ads1256_init", pi_ads1256_init},
+         {"ads1256_wait4DRDY", pi_ads1256_wait4DRDY},
+         {"ads1256_getraw", pi_ads1256_getraw},
+         {"ads8344_init", pi_ads8344_init},
+         {"sc620_init",  pi_sc620_init},
          {"setbank",     pi_setbank},
          {"getraw_temp", pi_getraw_temp},
          {"getraw_volt", pi_getraw_volt},
@@ -42,9 +44,8 @@ luaL_Reg pi_funcs[] = {
          {NULL, NULL},
          };
 
-int pi_init_ads1256(lua_State * L) { return 0 ; }
-int pi_init_ads8344(lua_State * L) { return 0 ; }
-int pi_init_sc620(lua_State * L) { return 0 ; }
+int pi_ads8344_init(lua_State * L) { return 0 ; }
+int pi_sc620_init(lua_State * L) { return 0 ; }
 
 int pi_getraw_temp(lua_State * L) { return 0 ; }
 int pi_getraw_volt(lua_State * L) { return 0 ; }
