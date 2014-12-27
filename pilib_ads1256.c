@@ -129,7 +129,13 @@ const struct ads1256_rate * getrateinfo( int rate )
  */
 static int  gain2reg( int gain )
 {
-   /* FIXME: Isn't there a kernel or library function that does this? */
+   /* FIXME: Isn't there a kernel or library function that does
+    *    this log base 2 of a number?
+    * WONTFIX: There is, clz (count leading zeros) but it's not
+    *    POSIX standard and not clear that it's any better
+    *    optimized than the code below.
+    * See Also Wikipedia: "Find First Set"
+    */
    int  reg = 0 ;
 
    if( gain >= 64 ) {
