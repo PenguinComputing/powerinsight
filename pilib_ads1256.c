@@ -181,7 +181,7 @@ static int wait4DRDY( int fd, double timeout )
    /* Initialize the messages */
    memset( msgs, 0, sizeof(msgs) );  /* NOTE: sizeof gets size of total array */
    msgs[0].tx_buf = (__u64) bufs +0 ;
-   bufs[0] = 0x10 ;  /* RREG [0] */
+   bufs[0] = 0x10 ;  /* RREG Read register 0 */
    bufs[1] = 0x00 ;  /* +0 more */
    msgs[0].len = 2 ;
    msgs[0].delay_usecs = 8 ;  /* T6: 50 clock periods at 8 MHz */
@@ -195,7 +195,7 @@ static int wait4DRDY( int fd, double timeout )
       if( ret == -1 ) {
          return -1 ;
       }
-      if( bufs[4] & 1 == 1 ) {
+      if( bufs[4] & 1 ) {
          /* Not ready yet */
 
          gettimeofday( &now, NULL );
@@ -237,7 +237,7 @@ int pi_ads1256_wait4DRDY(lua_State * L)
 
    ret = wait4DRDY( fd, timeout );
 
-   if( ret == -1 ) {
+   if( ret < 0 ) {
       return luaL_error( L, "wait4DRDY(%d): %s", fd, strerror(errno) );
    }
 
@@ -282,14 +282,14 @@ int pi_ads1256_init(lua_State * L)
    memset( msgs, 0, sizeof(msgs) );
    msgs[0].tx_buf = (__u64) bufs +0 ;
    msgs[0].len = 7 ;
-   bufs[0] = 0x50 ;  /* Write register 0 */
-   bufs[1] = 0x04 ;  /* +4 more registers */
+   bufs[0] = 0x50 ;  /* WREG Write register 0 */
+   bufs[1] = 0x04 ;  /* +4 more */
    bufs[2] = 0x02 ;  /* Enable buffer */
    bufs[3] = 0x68 ;  /* Select PTS sensor channel, AIN6-AINCOM */
    bufs[4] = 0x20 | gainreg ;
    bufs[5] = rateinfo->regval ;
    bufs[6] = 0xc2 ;  /* LED off */
-   msgs[0].delay_usecs = 1 ;  /* t11, 4 clocks at 8MHz */
+   msgs[0].delay_usecs = 1 ;  /* T11(WREG), 4 clocks at 8MHz */
    msgs[1].tx_buf = (__u64) bufs +8 ;
    msgs[1].len = 1 ;
    bufs[8] = 0xf0 ;  /* SELFCAL */
@@ -303,7 +303,12 @@ int pi_ads1256_init(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) to initialize: %s", fd, strerror(errno) );
    }
 
-   wait4DRDY( fd, rateinfo->selfcal / 1000000.0 );
+   ret = wait4DRDY( fd, rateinfo->selfcal * (1.2 / 1000000.0) );
+   if( ret < 0 ) {
+      return luaL_error( L, "ioctl(%d,...) wait for DRDY: %s", fd, strerror(errno));
+   } else if( ! ret ) {
+      return luaL_error( L, "Device NOT ready after SELFCAL (timeout %f)", rateinfo->selfcal * (1.2/1000000.0) );
+   } 
 
    if( debug & DBG_SPI ) {
       gettimeofday( &now, NULL );
@@ -317,7 +322,7 @@ int pi_ads1256_init(lua_State * L)
    msgs[0].tx_buf = (__u64) bufs +0 ;
    msgs[0].len = 1 ;
    bufs[0] = 0xfc ;  /* SYNC */
-   msgs[0].delay_usecs = 4 ;  /* t11, 24 clocks @ 8MHz */
+   msgs[0].delay_usecs = 4 ;  /* T11(SYNC), 24 clocks @ 8MHz */
    msgs[1].tx_buf = (__u64) bufs +4 ;
    msgs[1].len = 1 ;
    bufs[4] = 0x00 ;  /* WAKEUP */
@@ -359,7 +364,7 @@ int pi_ads1256_init(lua_State * L)
    memset( msgs, 0, sizeof(msgs) );
    msgs[0].tx_buf = (__u64) bufs +0 ;
    msgs[0].len = 2 ;
-   bufs[0] = 0x15 ;  /* RREG [5] */
+   bufs[0] = 0x15 ;  /* RREG Read register 5 */
    bufs[1] = 0x05 ;  /* +5 more */
    msgs[0].delay_usecs = 8 ;  /* T6: 50 clock periods at 8 MHz */
    msgs[1].rx_buf = (__u64) bufs +4 ;
@@ -388,17 +393,18 @@ int pi_ads1256_init(lua_State * L)
    return 3 ;
 }
 
-/* pi_ads1256_getraw( fd, gain, [timeout] ) -- Initialize ADS1256
- * @fd -- spidev device connected to ads1256.  Assumes channel already selected
- * @gain -- Current gain setting
- * @timeout -- Timeout to wait for DRDY
+/* pi_ads1256_getraw( fd, [gain, timeout] ) -- Get a reading from ADS1256
+ *                                    Assumes channel/mux already selected
+ * @fd -- spidev device connected to ads1256.
+ * @gain -- Optional gain to divide the reading (default 1.0)
+ * @timeout -- Optional timeout to wait for DRDY (default 1.0sec)
  * -----
  * @reading -- Reading from selected channel
  */
 int pi_ads1256_getraw(lua_State * L)
 {
    int  fd ;
-   int  gain ;
+   lua_Number  gain ;
    lua_Number  timeout ;
    struct spi_ioc_transfer  msgs[2] ;
    __u8  bufs[8] ;
@@ -406,10 +412,15 @@ int pi_ads1256_getraw(lua_State * L)
    lua_Number  reading ;
 
    fd = luaL_checkint( L, 1 );
-   gain = luaL_checkint( L, 2 );
+   gain = luaL_optnumber( L, 2, 1.0 );
    timeout = luaL_optnumber( L, 3, 1.0 );
 
-   wait4DRDY( fd, timeout );
+   ret = wait4DRDY( fd, timeout );
+   if( ret < 0 ) {
+      return luaL_error( L, "ioctl(%d,...) wait for DRDY: %s", fd, strerror(errno));
+   } else if( !ret ) {
+      return luaL_error( L, "ADS1256 device NOT ready (timeout %f)", timeout );
+   }
 
    /* Get reading */
    memset( msgs, 0, sizeof(msgs) );
@@ -425,10 +436,55 @@ int pi_ads1256_getraw(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) RDATA: %s", fd, strerror(errno) );
    }
 
-   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / (reg2gain(gain2reg(gain)) * 0x400000);
+   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / gain / 0x400000 ;
 
    lua_pushnumber( L, reading );
    return 1 ;
+}
+
+/* pi_ads1256_setmux( fd, mux ) -- Configure MUX on ADS1256
+ * @fd -- spidev device connected to ads1256.
+ * @mux -- Optional gain to divide the reading (default 1.0)
+ * @delay -- Optional delay after WAKEUP (default 0.0sec)
+ * -----
+ */
+int pi_ads1256_setmux(lua_State * L)
+{
+   int  fd ;
+   lua_Number  gain ;
+   lua_Number  delay ;
+   struct spi_ioc_transfer  msgs[3] ;
+   __u8  bufs[12] ;
+   int  ret ;
+   lua_Number  reading ;
+
+   fd = luaL_checkint( L, 1 );
+   mux = luaL_checkint( L, 2 );
+   delay = luaL_optnumber( L, 3, 0.0 );
+   luaL_argcheck( L, delay >= 0 && delay <= 0.065000, 3, "invalid delay [0..65000 usec]" );
+
+   /* Write MUX register, then restart the conversion */
+   memset( msgs, 0, sizeof(msgs) );
+   msgs[0].tx_buf = (__u64) bufs +0 ;
+   msgs[0].len = 3 ;
+   bufs[0] = 0x51 ;  /* WREG Write register 1 */
+   bufs[1] = 0x00 ;  /* +0 more */
+   msgs[0].delay_usecs = 1 ;  /* T11(WREG), 4 clocks at 8MHz */
+   msgs[1].tx_buf = (__u64) bufs +4 ;
+   msgs[1].len = 1 ;
+   bufs[4] = 0xfc ;  /* SYNC */
+   msgs[1].delay_usecs = 4 ;  /* T11(SYNC), 24 clocks @ 8MHz */
+   msgs[2].tx_buf = (__u64) bufs +8 ;
+   msgs[2].len = 1 ;
+   bufs[8] = 0x00 ;  /* WAKEUP */
+   msgs[2].delay_usecs = delay * 1000000 ;
+   
+   ret = ioctl( fd, SPI_IOC_MESSAGE(3), msgs );
+   if( ret < 0 ) {
+      return luaL_error( L, "ioctl(%d,2,...) WREG MUX/SYNC/WAKEUP: %s", fd, strerror(errno) );
+   }
+
+   return 0 ;
 }
 
 /* ex: set sw=3 sta et : */

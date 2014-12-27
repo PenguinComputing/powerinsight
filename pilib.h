@@ -21,6 +21,7 @@ int pi_spi_message(lua_State * L);
 int pi_ads1256_init(lua_State * L);
 int pi_ads1256_wait4DRDY(lua_State * L);
 int pi_ads1256_getraw(lua_State * L);
+int pi_ads1256_setmux(lua_State * L);
 int pi_ads8344_init(lua_State * L);
 int pi_sc620_init(lua_State * L);
 int pi_setbank(lua_State * L);

@@ -29,6 +29,7 @@ luaL_Reg pi_funcs[] = {
          {"ads1256_init", pi_ads1256_init},
          {"ads1256_wait4DRDY", pi_ads1256_wait4DRDY},
          {"ads1256_getraw", pi_ads1256_getraw},
+         {"ads1256_setmux", pi_ads1256_setmux},
          {"ads8344_init", pi_ads8344_init},
          {"sc620_init",  pi_sc620_init},
          {"setbank",     pi_setbank},
