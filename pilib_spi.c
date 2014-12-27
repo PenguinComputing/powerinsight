@@ -334,9 +334,8 @@ int pi_setbank(lua_State * L)
    bank = luaL_checkint( L, 2 );
 
    bankbits = lua_objlen( L, 1 );
-   if( bankbits < 1 || bankbits > 3 ) {
-      return luaL_argerror( L, 1, "invalid number of bank bits (<1 or >3)" );
-   }
+   luaL_argcheck( L, bankbits >= 1 && bankbits <= 3, 1, "invalid number of bank bits (1 to 3)" );
+
    for( idx = 1 ; idx <= bankbits ; ++idx ) {
       lua_pushinteger( L, idx );
       lua_gettable( L, 1 );

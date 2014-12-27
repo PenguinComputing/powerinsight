@@ -293,7 +293,11 @@ int pi_ads1256_init(lua_State * L)
    msgs[1].tx_buf = (__u64) bufs +8 ;
    msgs[1].len = 1 ;
    bufs[8] = 0xf0 ;  /* SELFCAL */
-   msgs[1].delay_usecs = rateinfo->selfcal * 4 / 5 ;
+   if( rateinfo->selfcal < 65500 ) {
+      msgs[1].delay_usecs = rateinfo->selfcal * 4 / 5 ;
+   } else {
+      msgs[1].delay_usecs = 65500 ;
+   }
 
    if( debug & DBG_SPI ) {
       gettimeofday( &start, NULL );
@@ -451,7 +455,7 @@ int pi_ads1256_getraw(lua_State * L)
 int pi_ads1256_setmux(lua_State * L)
 {
    int  fd ;
-   lua_Number  gain ;
+   int  mux ;
    lua_Number  delay ;
    struct spi_ioc_transfer  msgs[3] ;
    __u8  bufs[12] ;
@@ -467,8 +471,9 @@ int pi_ads1256_setmux(lua_State * L)
    memset( msgs, 0, sizeof(msgs) );
    msgs[0].tx_buf = (__u64) bufs +0 ;
    msgs[0].len = 3 ;
-   bufs[0] = 0x51 ;  /* WREG Write register 1 */
+   bufs[0] = 0x51 ;  /* WREG Write register 1 (MUX) */
    bufs[1] = 0x00 ;  /* +0 more */
+   bufs[2] = mux ;
    msgs[0].delay_usecs = 1 ;  /* T11(WREG), 4 clocks at 8MHz */
    msgs[1].tx_buf = (__u64) bufs +4 ;
    msgs[1].len = 1 ;
