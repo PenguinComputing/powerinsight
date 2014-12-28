@@ -120,7 +120,7 @@ const struct ads1256_rate * getrateinfo( int rate )
       fprintf( stderr, "Replying with: %d [%d]\n", idx, ads1256_rate_tbl[idx].rate );
    }
    return ads1256_rate_tbl + idx ;
-} 
+}
 
 /* int  gain2reg( gain ) -- Convert gain to register bit pattern
  * @gain -- gain (one of 1, 2, 4, 8, 16, 32, 64)
@@ -250,7 +250,6 @@ int pi_ads1256_wait4DRDY(lua_State * L)
  * @rate -- conversion rate to select (default: 2000)
  * @gain -- gain setting (default: 16)
  * -----
- * @reading -- Reading from PTS sensor
  * @ofc -- SELFCAL calculated ofc (on 0-1 scale)
  * @fsc -- SELFCAL calculated fsc (~1)
  */
@@ -290,6 +289,7 @@ int pi_ads1256_init(lua_State * L)
    bufs[5] = rateinfo->regval ;
    bufs[6] = 0xc2 ;  /* LED off */
    msgs[0].delay_usecs = 1 ;  /* T11(WREG), 4 clocks at 8MHz */
+
    msgs[1].tx_buf = (__u64) bufs +8 ;
    msgs[1].len = 1 ;
    bufs[8] = 0xf0 ;  /* SELFCAL */
@@ -312,7 +312,7 @@ int pi_ads1256_init(lua_State * L)
       return luaL_error( L, "ioctl(%d,...) wait for DRDY: %s", fd, strerror(errno));
    } else if( ! ret ) {
       return luaL_error( L, "Device NOT ready after SELFCAL (timeout %f)", rateinfo->selfcal * (1.2/1000000.0) );
-   } 
+   }
 
    if( debug & DBG_SPI ) {
       gettimeofday( &now, NULL );
@@ -327,42 +327,15 @@ int pi_ads1256_init(lua_State * L)
    msgs[0].len = 1 ;
    bufs[0] = 0xfc ;  /* SYNC */
    msgs[0].delay_usecs = 4 ;  /* T11(SYNC), 24 clocks @ 8MHz */
+
    msgs[1].tx_buf = (__u64) bufs +4 ;
    msgs[1].len = 1 ;
    bufs[4] = 0x00 ;  /* WAKEUP */
-   
-   if( debug & DBG_SPI ) {
-      gettimeofday( &start, NULL );
-   };
+
    ret = ioctl( fd, SPI_IOC_MESSAGE(2), msgs );
    if( ret < 0 ) {
       return luaL_error( L, "ioctl(%d,2,...) to SYNC/WAKE: %s", fd, strerror(errno) );
    }
-
-   wait4DRDY( fd, rateinfo->selfcal / 1000000.0 );
-
-   if( debug & DBG_SPI ) {
-      gettimeofday( &now, NULL );
-      fprintf( stderr, "DBG: SYNC/WAKE took: %.6f sec\n",
-            now.tv_sec-start.tv_sec + (now.tv_usec-start.tv_usec)/1000000.0
-         );
-   }
-
-   /* Get reading */
-   memset( msgs, 0, sizeof(msgs) );
-   msgs[0].tx_buf = (__u64) bufs +0 ;
-   msgs[0].len = 1 ;
-   bufs[0] = 0x01 ;  /* RDATA */
-   msgs[0].delay_usecs = 8 ;  /* T6: 50 clock periods at 8 MHz */
-   msgs[1].rx_buf = (__u64) bufs +4 ;
-   msgs[1].len = 3 ;
-
-   ret = ioctl( fd, SPI_IOC_MESSAGE(2), msgs );
-   if( ret < 0 ) {
-      return luaL_error( L, "ioctl(%d,2,...) RDATA: %s", fd, strerror(errno) );
-   }
-
-   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / (reg2gain(gainreg) * 0x400000);
 
    /* Get ofc, fsc */
    memset( msgs, 0, sizeof(msgs) );
@@ -371,6 +344,7 @@ int pi_ads1256_init(lua_State * L)
    bufs[0] = 0x15 ;  /* RREG Read register 5 */
    bufs[1] = 0x05 ;  /* +5 more */
    msgs[0].delay_usecs = 8 ;  /* T6: 50 clock periods at 8 MHz */
+
    msgs[1].rx_buf = (__u64) bufs +4 ;
    msgs[1].len = 6 ;
 
@@ -380,21 +354,20 @@ int pi_ads1256_init(lua_State * L)
    }
 
    if( verbose > 1 ) {
-      fprintf( stderr, "OFC: 0x%06x  FSC: 0x%06x\n  A: 0x%06x  FSC: 0x%06x\n",
-         (bufs[4]) | (bufs[5]<<8) | ((signed char)bufs[6]<<16),
-         (bufs[7]) | (bufs[8]<<8) | (bufs[9]<<16),
+      fprintf( stderr, "OFC: 0x%02x%02x%02x  FSC: 0x%02x%02x%02x\n  A: 0x%06x  FSC: 0x%06x\n",
+         bufs[6], bufs[5], bufs[4],
+         bufs[9], bufs[8], bufs[7],
          rateinfo->alpha,
          rateinfo->fsc
       );
    }
 
-   ofc = (double)((bufs[4]) | (bufs[5]<<8) | ((signed char)bufs[6]<<16)) / rateinfo->alpha ;
-   fsc = (double)((bufs[7]) | (bufs[8]<<8) | (bufs[9]<<16)) / rateinfo->fsc ;
+   ofc = (double)(((signed char)bufs[6]<<16) | (bufs[5]<<8) | (bufs[4])) / rateinfo->alpha ;
+   fsc = (double)(             (bufs[9]<<16) | (bufs[8]<<8) | (bufs[7])) / rateinfo->fsc ;
 
-   lua_pushnumber( L, reading );
    lua_pushnumber( L, ofc );
    lua_pushnumber( L, fsc );
-   return 3 ;
+   return 2 ;
 }
 
 /* pi_ads1256_getraw( fd, [gain, timeout] ) -- Get a reading from ADS1256
@@ -440,7 +413,7 @@ int pi_ads1256_getraw(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) RDATA: %s", fd, strerror(errno) );
    }
 
-   reading = (double)((bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / gain / 0x400000 ;
+   reading = (double)(((signed char)bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / gain / 0x400000 ;
 
    lua_pushnumber( L, reading );
    return 1 ;
@@ -465,9 +438,17 @@ int pi_ads1256_setmux(lua_State * L)
    fd = luaL_checkint( L, 1 );
    mux = luaL_checkint( L, 2 );
    delay = luaL_optnumber( L, 3, 0.0 );
-   luaL_argcheck( L, delay >= 0 && delay <= 0.065000, 3, "invalid delay [0..65000 usec]" );
 
-   /* Write MUX register, then restart the conversion */
+   if( delay < 0 || delay > 0.065000 ) {
+      fprintf( stderr, "WARNING: Invalid delay in ads1256_setmux: %g [0, 0.065]\n", delay );
+      if( delay < 0 ) {
+         delay = 0.0 ;
+      } else {
+         delay = 0.065 ;
+      }
+   }
+
+   /* Write MUX register, then (re)start the conversion */
    memset( msgs, 0, sizeof(msgs) );
    msgs[0].tx_buf = (__u64) bufs +0 ;
    msgs[0].len = 3 ;
@@ -475,15 +456,17 @@ int pi_ads1256_setmux(lua_State * L)
    bufs[1] = 0x00 ;  /* +0 more */
    bufs[2] = mux ;
    msgs[0].delay_usecs = 1 ;  /* T11(WREG), 4 clocks at 8MHz */
+
    msgs[1].tx_buf = (__u64) bufs +4 ;
    msgs[1].len = 1 ;
    bufs[4] = 0xfc ;  /* SYNC */
    msgs[1].delay_usecs = 4 ;  /* T11(SYNC), 24 clocks @ 8MHz */
+
    msgs[2].tx_buf = (__u64) bufs +8 ;
    msgs[2].len = 1 ;
    bufs[8] = 0x00 ;  /* WAKEUP */
    msgs[2].delay_usecs = delay * 1000000 ;
-   
+
    ret = ioctl( fd, SPI_IOC_MESSAGE(3), msgs );
    if( ret < 0 ) {
       return luaL_error( L, "ioctl(%d,2,...) WREG MUX/SYNC/WAKEUP: %s", fd, strerror(errno) );

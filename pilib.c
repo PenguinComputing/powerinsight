@@ -66,7 +66,7 @@ int pi_register( lua_State *L )
       fputs( "WARNING: pi_register called with non-empty stack. Dropped\n", stderr );
       lua_settop( L, 0 );
    }
-   
+
    /* FIXME: For Lua 5.2, use luaL_setfuncs but do the
     *   same thing, ie: create global reference to package
     *   "pi" with these functions
@@ -114,7 +114,7 @@ int pi_register( lua_State *L )
     *    pi_register and more easily done in Lua than in C
     */
    /* dostring "init" for initialization from lua */
-   ret = luaL_loadstring(L, 
+   ret = luaL_loadstring(L,
 /**** BEGIN LUA CODE ****/
 "pi.version = 'v0.1'\n"
 /**** END LUA CODE ****/
