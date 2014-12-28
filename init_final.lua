@@ -10,19 +10,21 @@ if P.version ~= "v0.1" then
 end
 
 local bank_mt
-local function bank_new ( s ) 
+local function bank_new ( s )
   setmetatable( s, bank_mt )
   local k,v
-  for k,v in ipairs(s.names) do
+  for k,v in ipairs(s.name) do
     s[k] = s[k] or P.open(v)
   end
   s:set(0)
   return s
 end
 bank_mt = {
-    new = bank_new,
-    set = P.setbank,
-}
+    __index = {
+        new = bank_new,
+        set = P.setbank,
+    }
+  }
 P.bank_new = bank_new
 
 local spi_mt
@@ -32,8 +34,10 @@ local function spi_new ( s )
   return s
 end
 spi_mt = {
-    new = spi_new,
-    speed = P.spi_maxspeed,
+    __index = {
+        new = spi_new,
+        speed = function (s,speed) P.spi_maxspeed(s.fd, speed) end
+    }
   }
 P.spi_new = spi_new
 

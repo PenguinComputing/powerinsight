@@ -25,7 +25,7 @@ elseif MainCarrier == "PN:100xxxxx" then
   -- PowerInsight v1.0
   -- SPI ports
 else
-  io.stderr:write( "Unknown Main Carrier: ", MainCarrier )
+  io.stderr:write( "Unknown Main Carrier: ", MainCarrier, "\n" )
   io.exit(1)
 end
 
