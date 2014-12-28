@@ -373,7 +373,8 @@ int pi_ads1256_init(lua_State * L)
 /* pi_ads1256_getraw( fd, [gain, timeout] ) -- Get a reading from ADS1256
  *                                    Assumes channel/mux already selected
  * @fd -- spidev device connected to ads1256.
- * @gain -- Optional gain to divide the reading (default 1.0)
+ * @scale -- Optional scale to multiply the reading (default 1.0)
+ *           (eg. 1/gain to back out the PGA scaling, or Vref to return volts)
  * @timeout -- Optional timeout to wait for DRDY (default 1.0sec)
  * -----
  * @reading -- Reading from selected channel
@@ -381,7 +382,7 @@ int pi_ads1256_init(lua_State * L)
 int pi_ads1256_getraw(lua_State * L)
 {
    int  fd ;
-   lua_Number  gain ;
+   lua_Number  scale ;
    lua_Number  timeout ;
    struct spi_ioc_transfer  msgs[2] ;
    __u8  bufs[8] ;
@@ -389,7 +390,7 @@ int pi_ads1256_getraw(lua_State * L)
    lua_Number  reading ;
 
    fd = luaL_checkint( L, 1 );
-   gain = luaL_optnumber( L, 2, 1.0 );
+   scale = luaL_optnumber( L, 2, 1.0 );
    timeout = luaL_optnumber( L, 3, 1.0 );
 
    ret = wait4DRDY( fd, timeout );
@@ -413,7 +414,7 @@ int pi_ads1256_getraw(lua_State * L)
       return luaL_error( L, "ioctl(%d,2,...) RDATA: %s", fd, strerror(errno) );
    }
 
-   reading = (double)(((signed char)bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / gain / 0x400000 ;
+   reading = scale * (((signed char)bufs[4]<<16)|(bufs[5]<<8)|(bufs[6])) / 0x400000 ;
 
    lua_pushnumber( L, reading );
    return 1 ;
