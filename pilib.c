@@ -42,6 +42,7 @@ luaL_Reg pi_funcs[] = {
          {"temp2rt_PTS", pi_temp2rt_PTS},
          {"setled_temp", pi_setled_temp},
          {"setled_main", pi_setled_main},
+         {"gettime",     pi_gettime},
          {NULL, NULL},
          };
 
@@ -109,7 +110,7 @@ int pi_register( lua_State *L )
     */
 
    /* FIXME: BE CAREFUL. This probably belongs in "init_final.lua"
-    *    which typicall runs immediately after pi_register()
+    *    which must run immediately after pi_register()
     *    Only put things here which are required to finalize
     *    pi_register and more easily done in Lua than in C
     */
@@ -157,6 +158,30 @@ void luaPI_doerror( lua_State * L, int ret, const char * attempt )
       }
       exit( 1 );
    }
+}
+
+/* pi_gettime( [seconds, fraction] ) -- Get absolute or delta time
+ * @seconds -- starting seconds to subtract from current time
+ * @fraction -- starting fractional seconds to subtract
+ * -----
+ * @seconds -- Current seconds + fraction  delta
+ *      NOTE: Use math.floor(seconds) when passing seconds/fraction
+ * @fraction -- Current fraction
+ */
+int pi_gettime(lua_State * L)
+{
+   lua_Number  seconds ;
+   lua_Number  fraction ;
+   struct timeval  now ;
+
+   seconds = luaL_optnumber( L, 1, 0.0 );
+   fraction = luaL_optnumber( L, 2, 0.0 );
+
+   gettimeofday( &now, NULL );
+
+   lua_pushnumber( L, now.tv_sec - seconds + now.tv_usec/1000000.0 - fraction );
+   lua_pushnumber( L, now.tv_usec / 1000000.0 );
+   return 2 ;
 }
 
 /* ex: set sw=3 sta et : */

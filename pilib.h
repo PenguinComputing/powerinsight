@@ -34,6 +34,7 @@ int pi_rt2temp_PTS(lua_State * L);
 int pi_temp2rt_PTS(lua_State * L);
 int pi_setled_temp(lua_State * L);
 int pi_setled_main(lua_State * L);
+int pi_gettime(lua_State * L);
 
 #endif /* PILIB_H */
 
