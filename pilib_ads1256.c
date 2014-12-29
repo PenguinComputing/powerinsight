@@ -420,9 +420,9 @@ int pi_ads1256_getraw(lua_State * L)
    return 1 ;
 }
 
-/* pi_ads1256_setmux( fd, mux ) -- Configure MUX on ADS1256
+/* pi_ads1256_setmux( fd, mux, delay ) -- Configure MUX on ADS1256
  * @fd -- spidev device connected to ads1256.
- * @mux -- Optional gain to divide the reading (default 1.0)
+ * @mux -- New value for MUX register
  * @delay -- Optional delay after WAKEUP (default 0.0sec)
  * -----
  */
@@ -494,6 +494,74 @@ int pi_ads1256_rxbuf2raw(lua_State * L)
    scale = luaL_optnumber( L, 2, 1.0 );
 
    reading = scale * (((signed char)rxbuf[0]<<16)|(rxbuf[1]<<8)|(rxbuf[2])) / 0x400000 ;
+
+   lua_pushnumber( L, reading );
+   return 1 ;
+}
+
+/* pi_ads1256_getraw_setmuxC( fd, scale, mux ) -- Get reading and set MUX
+ * @fd -- spidev device connected to ads1256.
+ * @scale -- scale factor for reading (default 1.0)
+ * @mux -- New value for MUX register
+ * -----
+ * @reading -- "raw" reading with scale applied
+ */
+int pi_ads1256_getraw_setmuxC(lua_State * L)
+{
+   int  fd ;
+   lua_Number  scale ;
+   int  mux ;
+   lua_Number  timeout ;
+   struct spi_ioc_transfer  msgs[5] ;
+   __u8  bufs[12] ;
+   int  ret ;
+   lua_Number  reading ;
+
+   fd = luaL_checkint( L, 1 );
+   scale = luaL_optnumber( L, 2, 1.0 );
+   mux = luaL_checkint( L, 3 );
+   timeout = 0.10 ;
+
+   /* Wait for DRDY */
+   ret = wait4DRDY( fd, timeout );
+   if( ret < 0 ) {
+      return luaL_error( L, "ioctl(%d,...) wait for DRDY: %s", fd, strerror(errno));
+   } else if( !ret ) {
+      return luaL_error( L, "ADS1256 device NOT ready (timeout %f)", timeout );
+   }
+
+   /* Write MUX register, then (re)start the conversion */
+   memset( msgs, 0, sizeof(msgs) );
+   msgs[0].tx_buf = (__u64) bufs +0 ;
+   msgs[0].len = 3 ;
+   bufs[0] = 0x51 ;  /* WREG Write register 1 (MUX) */
+   bufs[1] = 0x00 ;  /* +0 more */
+   bufs[2] = mux ;
+   msgs[0].delay_usecs = 1 ;  /* T11(WREG), 4 clocks at 8MHz */
+
+   msgs[1].tx_buf = (__u64) bufs +4 ;
+   msgs[1].len = 1 ;
+   bufs[4] = 0xfc ;  /* SYNC */
+   msgs[1].delay_usecs = 4 ;  /* T11(SYNC), 24 clocks @ 8MHz */
+
+   msgs[2].tx_buf = (__u64) bufs +5 ;
+   msgs[2].len = 1 ;
+   bufs[5] = 0x00 ;  /* WAKEUP */
+
+   msgs[3].tx_buf = (__u64) bufs +6 ;
+   msgs[3].len = 1 ;
+   bufs[6] = 0x01 ;  /* RDATA */
+   msgs[3].delay_usecs = 7 ;  /* T6: 50 clock periods at 8 MHz */
+
+   msgs[4].rx_buf = (__u64) bufs +8 ;
+   msgs[4].len = 3 ;
+
+   ret = ioctl( fd, SPI_IOC_MESSAGE(5), msgs );
+   if( ret < 0 ) {
+      return luaL_error( L, "ioctl(%d,2,...) WREG MUX/SYNC/WAKEUP/RDATA: %s", fd, strerror(errno) );
+   }
+
+   reading = scale * (((signed char)bufs[8]<<16)|(bufs[9]<<8)|(bufs[10])) / 0x400000 ;
 
    lua_pushnumber( L, reading );
    return 1 ;
