@@ -26,7 +26,7 @@ elseif MainCarrier == "PN:100xxxxx" then
   -- SPI ports
 else
   io.stderr:write( "Unknown Main Carrier: ", MainCarrier, "\n" )
-  io.exit(1)
+  os.exit(1)
 end
 
 
