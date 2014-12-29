@@ -169,22 +169,16 @@ static int wait4DRDY( int fd, double timeout )
    struct timeval  now ;
    unsigned long  loops ;
    unsigned long  maxloops ;
-   int  usec_sleep ;
    struct spi_ioc_transfer  msgs[2] ;
    __u8  bufs[8] ;
    int  ret ;
 
-   if( debug & DBG_SPI ) {
+   if( debug & DBG_WAIT ) {
       gettimeofday( &start, NULL );
    }
 
-   if( timeout > 0.010 ) {
-      usec_sleep = 400 ;
-      maxloops = timeout * (1000000.0 / 500) ;
-   } else {
-      usec_sleep = 0 ;
-      maxloops = timeout * (1000000.0 / 100) ; 
-   }
+   /* 100usec per loop is an estimate based on debug measurements */
+   maxloops = timeout * (1000000.0 / 100) ; 
 
    /* Initialize the messages */
    memset( msgs, 0, sizeof(msgs) );  /* NOTE: sizeof gets size of total array */
@@ -203,20 +197,9 @@ static int wait4DRDY( int fd, double timeout )
       if( ret == -1 ) {
          return -1 ;
       }
-      if( bufs[4] & 1 ) {
-         /* Not ready yet */
+   } while( bufs[4] & 1 && loops < maxloops );
 
-         if( loops > maxloops ) {
-            /* Timeout */
-            break ;
-         } else if ( usec_sleep ) {
-            /* Wait a bit */
-            usleep( usec_sleep );
-         }
-      }
-   } while( bufs[4] & 1 );
-
-   if( debug & DBG_SPI ) {
+   if( debug & DBG_WAIT ) {
       gettimeofday( &now, NULL );
       fprintf( stderr, "DBG: wait4DRDY(%d) took: %.6f sec, %lu loops, DRDY = %d\n",
             fd, now.tv_sec-start.tv_sec + (now.tv_usec-start.tv_usec)/1000000.0,
@@ -241,7 +224,7 @@ int pi_ads1256_wait4DRDY(lua_State * L)
    int  ret ;
 
    fd = luaL_checkint( L, 1 );
-   timeout = luaL_optnumber( L, 2, 0.010 );  /* default to 10msec timeout */
+   timeout = luaL_optnumber( L, 2, 0.100 );  /* default to 100msec timeout */
 
    ret = wait4DRDY( fd, timeout );
 
@@ -399,7 +382,7 @@ int pi_ads1256_getraw(lua_State * L)
 
    fd = luaL_checkint( L, 1 );
    scale = luaL_optnumber( L, 2, 1.0 );
-   timeout = luaL_optnumber( L, 3, 1.0 );
+   timeout = luaL_optnumber( L, 3, 0.100 );
 
    ret = wait4DRDY( fd, timeout );
    if( ret < 0 ) {

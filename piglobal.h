@@ -39,6 +39,7 @@ extern int verbose ;
 extern unsigned int  debug ;
 #define DBG_LUA   0x0001
 #define DBG_SPI   0x0002
+#define DBG_WAIT  0x0004
 
 #ifndef PIDEBUG_DEFAULT
 #define PIDEBUG_DEFAULT 0
