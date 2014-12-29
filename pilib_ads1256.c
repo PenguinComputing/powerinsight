@@ -511,7 +511,7 @@ int pi_ads1256_getraw_setmuxC(lua_State * L)
    fd = luaL_checkint( L, 1 );
    scale = luaL_optnumber( L, 2, 1.0 );
    mux = luaL_checkint( L, 3 );
-   timeout = 0.005 ;
+   timeout = 0.100 ;
 
    /* Wait for DRDY */
    ret = wait4DRDY( fd, timeout );

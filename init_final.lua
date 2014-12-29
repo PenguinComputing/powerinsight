@@ -9,18 +9,20 @@ if P.version ~= "v0.1" then
    io.stderr:write( P.ARGV0, ": WARNING: Version mismatch between binary and .lua code\nExpected v0.1, got ", P.version, "\n" )
 end
 
-local function ads1256_getraw_setmux ( fd, scale, mux )
+local function ads1256_getraw_setmuxL ( fd, scale, mux )
   P.ads1256_wait4DRDY( fd )
   local rxbuf = { len=3 }
   P.spi_message( fd,
         { tx_buf=string.char(0x51,0x00,mux), delay_usecs=1 }, -- WREG MUX
         { tx_buf='\252', delay_usecs=4 }, -- SYNC
         { tx_buf='\0' }, -- WAKEUP
-        { tx_buf='\1', delay_usecs=8 }, -- RDATA
+        { tx_buf='\1', delay_usecs=7 }, -- RDATA
         rxbuf )
   return P.ads1256_rxbuf2raw( rxbuf.rx_buf, scale )
 end
-P.ads1256_getraw_setmux = ads1256_getraw_setmux
+P.ads1256_getraw_setmuxL = ads1256_getraw_setmuxL
+-- Choose Lua (L) or C implementation
+P.ads1256_getraw_setmux = P.ads1256_getraw_setmuxC
 
 local bank_mt
 local function bank_new ( s )
