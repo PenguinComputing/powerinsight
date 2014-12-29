@@ -13,12 +13,12 @@ local function ads1256_getraw_setmux ( fd, scale, mux )
   P.ads1256_wait4DRDY( fd )
   local rxbuf = { len=3 }
   P.spi_message( fd,
-        { txbuf=string.char(0x51,0x00,mux), delay_usecs=1 }, -- WREG MUX
-        { txbuf='\252', delay_usecs=4 }, -- SYNC
-        { txbuf='\0' }, -- WAKEUP
-        { txbuf='\1' }, -- RDATA
+        { tx_buf=string.char(0x51,0x00,mux), delay_usecs=1 }, -- WREG MUX
+        { tx_buf='\252', delay_usecs=4 }, -- SYNC
+        { tx_buf='\0' }, -- WAKEUP
+        { tx_buf='\1', delay_usecs=8 }, -- RDATA
         rxbuf )
-  return P.ads1256_rxbuf2raw( rxbuf.rxbuf, scale )
+  return P.ads1256_rxbuf2raw( rxbuf.rx_buf, scale )
 end
 P.ads1256_getraw_setmux = ads1256_getraw_setmux
 
