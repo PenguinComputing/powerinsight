@@ -9,6 +9,19 @@ if P.version ~= "v0.1" then
    io.stderr:write( P.ARGV0, ": WARNING: Version mismatch between binary and .lua code\nExpected v0.1, got ", P.version, "\n" )
 end
 
+local function ads1256_getraw_setmux ( fd, scale, mux )
+  P.ads1256_wait4DRDY( fd )
+  local rxbuf = { len=3 }
+  P.spi_message( fd,
+        { txbuf=string.char(0x51,0x00,mux), delay_usecs=1 }, -- WREG MUX
+        { txbuf='\252', delay_usecs=4 }, -- SYNC
+        { txbuf='\0' }, -- WAKEUP
+        { txbuf='\1' }, -- RDATA
+        rxbuf )
+  return P.ads1256_rxbuf2raw( rxbuf.rxbuf, scale )
+end
+P.ads1256_getraw_setmux = ads1256_getraw_setmux
+
 local bank_mt
 local function bank_new ( s )
   setmetatable( s, bank_mt )

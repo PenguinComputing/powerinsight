@@ -370,7 +370,7 @@ int pi_ads1256_init(lua_State * L)
    return 2 ;
 }
 
-/* pi_ads1256_getraw( fd, [gain, timeout] ) -- Get a reading from ADS1256
+/* pi_ads1256_getraw( fd, [scale, timeout] ) -- Get a reading from ADS1256
  *                                    Assumes channel/mux already selected
  * @fd -- spidev device connected to ads1256.
  * @scale -- Optional scale to multiply the reading (default 1.0)
@@ -474,6 +474,29 @@ int pi_ads1256_setmux(lua_State * L)
    }
 
    return 0 ;
+}
+
+/* pi_ads1256_rxbuf2raw( rxbuf, [scale] ) -- Convert rxbuf to a reading
+ * @rxbuf -- a 3-byte string with a reading
+ * @scale -- optional scale factor to apply
+ * -----
+ * @reading -- Reading
+ */
+int pi_ads1256_rxbuf2raw(lua_State * L)
+{
+   const __u8 *  rxbuf ;
+   size_t  len ;
+   lua_Number  scale ;
+   lua_Number  reading ;
+
+   rxbuf = luaL_checklstring( L, 1, &len );
+   luaL_argcheck( L, len >= 3, 1, "requires 3 bytes" );
+   scale = luaL_optnumber( L, 2, 1.0 );
+
+   reading = scale * (((signed char)rxbuf[0]<<16)|(rxbuf[1]<<8)|(rxbuf[2])) / 0x400000 ;
+
+   lua_pushnumber( L, reading );
+   return 1 ;
 }
 
 /* ex: set sw=3 sta et : */
