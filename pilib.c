@@ -160,28 +160,27 @@ void luaPI_doerror( lua_State * L, int ret, const char * attempt )
    }
 }
 
-/* pi_gettime( [seconds, fraction] ) -- Get absolute or delta time
- * @seconds -- starting seconds to subtract from current time
- * @fraction -- starting fractional seconds to subtract
+/* pi_gettime( [start] ) -- Get absolute or delta time
+ * @start -- starting seconds to subtract from current time (default 0)
  * -----
- * @seconds -- Current seconds + fraction  delta
- *      NOTE: Use math.floor(seconds) when passing seconds/fraction
- * @fraction -- Current fraction
+ * @delta -- Current time delta to start
+ *
+ * NOTE: It turns out that a double has *just* enough bits to hold a
+ *      struct timeval with micro-second resolution without loss of
+ *      precision.  32 bits for seconds and 20 bits for microseconds
+ *      and 53 effective bits in a double mantissa
  */
 int pi_gettime(lua_State * L)
 {
    lua_Number  seconds ;
-   lua_Number  fraction ;
    struct timeval  now ;
 
    seconds = luaL_optnumber( L, 1, 0.0 );
-   fraction = luaL_optnumber( L, 2, 0.0 );
 
    gettimeofday( &now, NULL );
 
-   lua_pushnumber( L, now.tv_sec - seconds + now.tv_usec/1000000.0 - fraction );
-   lua_pushnumber( L, now.tv_usec / 1000000.0 );
-   return 2 ;
+   lua_pushnumber( L, now.tv_sec - seconds + now.tv_usec/1000000.0 );
+   return 1 ;
 }
 
 /* ex: set sw=3 sta et : */
