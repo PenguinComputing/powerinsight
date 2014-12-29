@@ -168,15 +168,23 @@ static int wait4DRDY( int fd, double timeout )
    struct timeval  start ;
    struct timeval  now ;
    unsigned long  loops ;
+   unsigned long  maxloops ;
+   int  usec_sleep ;
    struct spi_ioc_transfer  msgs[2] ;
    __u8  bufs[8] ;
    int  ret ;
 
-   if( timeout < 0.010 ) {
-      timeout = 0.010 ;
+   if( debug & DBG_SPI ) {
+      gettimeofday( &start, NULL );
    }
 
-   gettimeofday( &start, NULL );
+   if( timeout > 0.010 ) {
+      usec_sleep = 400 ;
+      maxloops = timeout * (1000000.0 / 500) ;
+   } else {
+      usec_sleep = 0 ;
+      maxloops = timeout * (1000000.0 / 100) ; 
+   }
 
    /* Initialize the messages */
    memset( msgs, 0, sizeof(msgs) );  /* NOTE: sizeof gets size of total array */
@@ -184,7 +192,7 @@ static int wait4DRDY( int fd, double timeout )
    bufs[0] = 0x10 ;  /* RREG Read register 0 */
    bufs[1] = 0x00 ;  /* +0 more */
    msgs[0].len = 2 ;
-   msgs[0].delay_usecs = 8 ;  /* T6: 50 clock periods at 8 MHz */
+   msgs[0].delay_usecs = 7 ;  /* T6: 50 clock periods at 8 MHz */
    msgs[1].rx_buf = (__u64) bufs +4 ;
    msgs[1].len = 1 ;
 
@@ -198,12 +206,12 @@ static int wait4DRDY( int fd, double timeout )
       if( bufs[4] & 1 ) {
          /* Not ready yet */
 
-         gettimeofday( &now, NULL );
-         if( now.tv_sec-start.tv_sec + (now.tv_usec-start.tv_usec)/1000000.0 > timeout ) {
+         if( loops > maxloops ) {
+            /* Timeout */
             break ;
-         } else if ( timeout >= 0.009 ) {
+         } else if ( usec_sleep ) {
             /* Wait a bit */
-            usleep( 100 );
+            usleep( usec_sleep );
          }
       }
    } while( bufs[4] & 1 );
@@ -520,7 +528,7 @@ int pi_ads1256_getraw_setmuxC(lua_State * L)
    fd = luaL_checkint( L, 1 );
    scale = luaL_optnumber( L, 2, 1.0 );
    mux = luaL_checkint( L, 3 );
-   timeout = 0.10 ;
+   timeout = 0.005 ;
 
    /* Wait for DRDY */
    ret = wait4DRDY( fd, timeout );
