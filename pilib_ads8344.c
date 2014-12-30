@@ -98,6 +98,11 @@ int pi_ads8344_getmessage(lua_State * L)
    int  shift ;
    __u8  tx_buf[4] ;
 
+   shift = luaL_optint( L, 2, 1 );
+   if( shift < 0 || shift > 7 ) {
+      return luaL_argerror( L, 1, "Invalid shift value [0,7]" );
+   }
+
    if( lua_type( L, 1 ) == LUA_TNUMBER ) {
       mux = luaL_checkint( L, 1 );
       lua_createtable( L, 0, 2 );
@@ -111,11 +116,6 @@ int pi_ads8344_getmessage(lua_State * L)
    }
    if( mux < 0 || mux > 7 ) {
       return luaL_argerror( L, 1, "Invalid mux value [0,7]" );
-   }
-
-   shift = luaL_optint( L, 2, 1 );
-   if( shift < 0 || shift > 7 ) {
-      return luaL_argerror( L, 1, "Invalid shift value [0,7]" );
    }
 
    tx_buf[0] = chan_map[mux] >> shift ;
