@@ -107,7 +107,7 @@ int pi_ads8344_getmessage(lua_State * L)
       mux = luaL_checkint( L, 1 );
       lua_createtable( L, 0, 2 );
    } else if( lua_type( L, 1 ) == LUA_TTABLE ) {
-      lua_getfield( L, -1, "mux" );
+      lua_getfield( L, 1, "mux" );
       if( lua_type( L, -1 ) != LUA_TNUMBER ) {
          return luaL_argerror( L, 1, "Missing integer field 'mux'" );
       }
