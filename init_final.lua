@@ -24,6 +24,13 @@ P.ads1256_getraw_setmuxL = ads1256_getraw_setmuxL
 -- Choose Lua (L) or C implementation
 P.ads1256_getraw_setmux = P.ads1256_getraw_setmuxC
 
+local function ads8344_init ( fd )
+  P.spi_maxspeed( fd, 2000000 )
+  P.spi_mode( fd, pi.SPI_MODE_0 )
+  P.spi_message( fd, P.ads8344_getmessage( 0 ) )
+end
+P.ads8344_init = ads8344_init
+
 local bank_mt
 local function bank_new ( s )
   setmetatable( s, bank_mt )
