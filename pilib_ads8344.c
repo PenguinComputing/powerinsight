@@ -82,17 +82,50 @@
 static unsigned int chan_map[] = { 0x87, 0xc7, 0x97, 0xd7,
                                    0xa7, 0xe7, 0xb7, 0xf7 };
 
-/* pi_ads8344_getmessage( mux, [speed, mode, delay] ) -- Create an SPI messaage
+/* pi_ads8344_getmessage( mux, [shift] ) -- Create an SPI messaage
  * @mux -- channel to read
- * @speed -- optional message speed override
- * @mode -- optional shift for the control (default: 1, stretch)
- * @delay -- optional delay after the message
+ * @shift -- optional shift for the control (default: 1, stretch)
+ * -- or --
+ * @message -- table with required field "mux" and optional
+ *      fields speed, delay_usecs, etc.  returned with tx_buf
+ *      filled in.
  * -----
  * @message -- Lua Table with tx_buf and len filled in
  */
 int pi_ads8344_getmessage(lua_State * L)
 {
+   int  mux ;
+   int  shift ;
+   __u8  tx_buf[4] ;
 
+   if( lua_type( L, 1 ) == LUA_TNUMBER ) {
+      mux = luaL_checkint( L, 1 );
+      lua_createtable( L, 0, 2 );
+   } else if( lua_type( L, 1 ) == LUA_TTABLE ) {
+      lua_getfield( L, -1, "mux" );
+      if( lua_type( L, -1 ) != LUA_TNUMBER ) {
+         return luaL_argerror( L, 1, "Missing integer field 'mux'" );
+      }
+      mux = lua_tointeger( L, -1 );
+      lua_pushvalue( L, 1 ); /* Copy table */
+   }
+   if( mux < 0 || mux > 7 ) {
+      return luaL_argerror( L, 1, "Invalid mux value [0,7]" );
+   }
+
+   shift = luaL_optint( L, 2, 1 );
+   if( shift < 0 || shift > 7 ) {
+      return luaL_argerror( L, 1, "Invalid shift value [0,7]" );
+   }
+
+   tx_buf[0] = chan_map[mux] >> shift ;
+   tx_buf[1] = chan_map[mux] << (8-shift);
+   tx_buf[2] = 0 ;
+   tx_buf[3] = 0 ;
+
+   lua_pushlstring( L, tx_buf, 4 );
+   lua_setfield( L, -2, "tx_buf" );
+   return 1 ;
 }
 
 
