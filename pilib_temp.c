@@ -108,12 +108,17 @@ static const double invPosmV[] = {  /* 0-500 degC, 0 to 20.644 mV */
 };
 
 
-/* Evaluate polynomial at X given coefficients and adjustment function */
+/* Evaluate polynomial at X given coefficients and adjustment function
+ * @x  Value to evaluate poly at
+ * @coeff  Array of coefficients (coeff[0] = a0, [1] = a1, etc.)
+ * @n  maximum coefficient number of the array  (sizeof(coeff)/sizeof(*coeff)-1)
+ * @adj()  Non-linear function to adjust the result
+ */
 static double evalPoly( double x, const double * coeff, ssize_t n, double (*adj)(double x) )
 {
     double a = 0 ;
 
-    for ( ; n > 0 ; --n ) {
+    for (  ; n > 0 ; --n ) {
         a += coeff[n] ;
         a *= x ;
     }
@@ -201,6 +206,7 @@ int pi_temp2volt_K(lua_State * L)
  *
  *  Rt = R0 x (1 + A x T + B x T^2 + C x (T - 100)xT^3)
  */
+#define negPTSLIMIT -55.0
 
 /*  0 to 155 deg C
  *
@@ -210,6 +216,7 @@ int pi_temp2volt_K(lua_State * L)
  *      ---------------------------------
  *               2*B
  */
+#define posPTSLIMIT 155.0
 
 /* 27.0k pullup with .1% accuracy.
  *
@@ -221,7 +228,6 @@ int pi_temp2volt_K(lua_State * L)
  * Using a ratio [0,1) reading for "counts"
  *   Rt/R0 = PULLUP * reading / (1 - reading)
  */
-#define posPTSLIMIT 155.0
 
 /* pi_rt2temp_PTS( reading, pullup ) -- Convert reading to temperature, PTS
  * @reading -- Ratio of Vref reading [0,1) for resistor divider (pullup over PTS)
