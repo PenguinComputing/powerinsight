@@ -37,6 +37,16 @@ luaL_Reg pi_funcs[] = {
          {"ads8344_getraw", pi_ads8344_getraw},
          {"sc620_init",  pi_sc620_init},
          {"setbank",     pi_setbank},
+         {"sens_5v",     pi_sens_5v},
+         {"sens_12v",    pi_sens_12v},
+         {"sens_3v3",    pi_sens_3v3},
+         {"sens_acs713_20", pi_sens_acs713_20},
+         {"sens_acs713_30", pi_sens_acs713_30},
+         {"sens_acs723_10", pi_sens_acs723_10},
+         {"sens_acs723_20", pi_sens_acs723_20},
+         {"sens_shunt10", pi_sens_shunt10},
+         {"sens_shunt25", pi_sens_shunt25},
+         {"sens_shunt50", pi_sens_shunt50},
          {"getraw_temp", pi_getraw_temp},
          {"getraw_volt", pi_getraw_volt},
          {"getraw_amp",  pi_getraw_amp},
@@ -47,6 +57,7 @@ luaL_Reg pi_funcs[] = {
          {"setled_temp", pi_setled_temp},
          {"setled_main", pi_setled_main},
          {"gettime",     pi_gettime},
+         {"filter",      pi_filter},
          {NULL, NULL},
          };
 
@@ -194,7 +205,10 @@ int pi_gettime(lua_State * L)
  * @next -- New output of filter
  *
  * Use like this:
- *    $vcc = pi_filter( $vcc, 0.8, 4.096/reading )
+ *    vcc = pi.filter( vcc, 0.8, 4.096/reading )
+ * In terms of a digital low-pass filter, the "time constant"
+ *    is related to the factor by the following identity
+ *    factor = exp(-1/tau)
  */
 int pi_filter(lua_State* L)
 {
@@ -208,7 +222,7 @@ int pi_filter(lua_State* L)
 
    luaL_argcheck( L, factor >= 0.0 && factor <= 1.0, 2, "out of range [0,1]" );
 
-   lua_pushnumber( L, last*factor + new*(1.0-factor) );
+   lua_pushnumber( L, new + (last - new)*factor );
    return 1 ;
 }
 

@@ -29,6 +29,16 @@ int pi_ads8344_getmessage(lua_State * L);
 int pi_ads8344_getraw(lua_State * L);
 int pi_sc620_init(lua_State * L);
 int pi_setbank(lua_State * L);
+int pi_sens_5v(lua_State * L);
+int pi_sens_12v(lua_State * L);
+int pi_sens_3v3(lua_State * L);
+int pi_sens_acs713_20(lua_State * L);
+int pi_sens_acs713_30(lua_State * L);
+int pi_sens_acs723_10(lua_State * L);
+int pi_sens_acs723_20(lua_State * L);
+int pi_sens_shunt10(lua_State * L);
+int pi_sens_shunt25(lua_State * L);
+int pi_sens_shunt50(lua_State * L);
 int pi_getraw_temp(lua_State * L);
 int pi_getraw_volt(lua_State * L);
 int pi_getraw_amp(lua_State * L);
@@ -39,6 +49,7 @@ int pi_temp2rt_PTS(lua_State * L);
 int pi_setled_temp(lua_State * L);
 int pi_setled_main(lua_State * L);
 int pi_gettime(lua_State * L);
+int pi_filter(lua_State * L);
 
 #endif /* PILIB_H */
 
