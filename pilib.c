@@ -186,4 +186,30 @@ int pi_gettime(lua_State * L)
    return 1 ;
 }
 
+/* pi_filter( last, factor, new )
+ * @last -- Previous value
+ * @factor -- Filter factor 0 = faster, 1 = slower
+ * @new -- New value to add to filter
+ * -----
+ * @next -- New output of filter
+ *
+ * Use like this:
+ *    $vcc = pi_filter( $vcc, 0.8, 4.096/reading )
+ */
+int pi_filter(lua_State* L)
+{
+   lua_Number  last ;
+   lua_Number  factor ;
+   lua_Number  new ;
+
+   last = luaL_checknumber( L, 1 );
+   factor = luaL_checknumber( L, 2 );
+   new = luaL_checknumber( L, 3 );
+
+   luaL_argcheck( L, factor >= 0.0 && factor <= 1.0, 2, "out of range [0,1]" );
+
+   lua_pushnumber( L, last*factor + new*(1.0-factor) );
+   return 1 ;
+}
+
 /* ex: set sw=3 sta et : */
