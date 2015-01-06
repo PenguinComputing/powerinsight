@@ -112,7 +112,7 @@ int pi_ads8344_getmessage(lua_State * L)
          return luaL_argerror( L, 1, "Missing integer field 'mux'" );
       }
       mux = lua_tointeger( L, -1 );
-      lua_pushvalue( L, 1 ); /* Copy table */
+      lua_pushvalue( L, 1 ); /* Copy table to top of stack */
    }
    if( mux < 0 || mux > 7 ) {
       return luaL_argerror( L, 1, "Invalid mux value [0,7]" );
@@ -129,12 +129,15 @@ int pi_ads8344_getmessage(lua_State * L)
 }
 
 
+#if 0
 /* pi_ads8344_init( fd ) -- Initialize ADS1256
  * @fd -- spidev device connected to ads1256.  Assumes bank already selected
  */
 int pi_ads8344_init(lua_State * L)
 {
    int  fd ;
+
+   fd = luaL_checkint( L, 1 );
 
 /* FIXME: Probably best done as Lua code, not C.
  *   Send a single message and throw away the result.
@@ -143,10 +146,9 @@ int pi_ads8344_init(lua_State * L)
  *   the chip down.
  */
 
-   fd = luaL_checkint( L, 1 );
-
    return 0 ;
 }
+#endif
 
 
 /* TODO: Add @scale as first argument? For symmetry with ads1256 */
@@ -166,6 +168,7 @@ int pi_ads8344_getraw(lua_State * L)
 
    scale = 1.0 ; /* luaL_checknumber( L, 1, 1.0 ); */
    narg = lua_gettop( L );
+   luaL_checkstack( L, narg+2, "allocating stack for return values" );
 
    for( arg = 1 ; arg <= narg ; ++arg ) {
       const __u8 *  tx_buf ;
@@ -204,7 +207,7 @@ int pi_ads8344_getraw(lua_State * L)
       }
       reading = ((((rx_buf[1]<<16)|(rx_buf[2]<<8)|rx_buf[3])>>shift)&0xffff) * scale / 65536.0 ;
 
-      lua_pop( L, 2 ); /* Discard tx_buf, rx_buf */
+      lua_pop( L, 2 ); /* Clean stack of tx_buf, rx_buf */
       lua_pushnumber( L, reading );
    }
 

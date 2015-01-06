@@ -32,7 +32,7 @@ luaL_Reg pi_funcs[] = {
          {"ads1256_setmux", pi_ads1256_setmux},
          {"ads1256_getraw_setmuxC", pi_ads1256_getraw_setmuxC},
          {"ads1256_rxbuf2raw", pi_ads1256_rxbuf2raw},
-         {"ads8344_init", pi_ads8344_init},
+/*       {"ads8344_init", pi_ads8344_init}, *** Declared in init_final.lua */
          {"ads8344_getmessage", pi_ads8344_getmessage},
          {"ads8344_getraw", pi_ads8344_getraw},
          {"sc620_init",  pi_sc620_init},

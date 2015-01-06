@@ -24,7 +24,7 @@ int pi_ads1256_getraw(lua_State * L);
 int pi_ads1256_setmux(lua_State * L);
 int pi_ads1256_getraw_setmuxC(lua_State * L);
 int pi_ads1256_rxbuf2raw(lua_State *L);
-int pi_ads8344_init(lua_State * L);
+/* int pi_ads8344_init(lua_State * L); *** Declared in init_final.lua */
 int pi_ads8344_getmessage(lua_State * L);
 int pi_ads8344_getraw(lua_State * L);
 int pi_sc620_init(lua_State * L);

@@ -29,5 +29,12 @@ else
   os.exit(1)
 end
 
+-- Configure expansion connectors
+-- Temperature carrier
+-- Expansion carriers
+
+-- Finalize the sensor configurations
+-- Loop through configured sensors
+--    Hook up to carrier/SPI infrastructure in each sensor
 
 -- vim: set sw=2 sta et : --
