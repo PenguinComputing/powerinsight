@@ -84,4 +84,4 @@ P.bar = bar
 pi = P -- ie. return P
 end
 
--- vim: set sw=2 sta et : --
+-- ex: set sw=2 sta et : --

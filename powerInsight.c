@@ -182,4 +182,4 @@ int main( int argc, char ** argv )
    return 0 ;
 }
 
-/* vim: set sw=3 sta et : */
+/* ex: set sw=3 sta et : */
