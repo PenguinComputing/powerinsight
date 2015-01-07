@@ -195,12 +195,12 @@ int pi_temp2volt_K(lua_State * L)
 
 
 /**********
- * Coefficients from datasheet for PTS 1k resistor
+ * Coefficients from datasheet for PTS resistor in unitless measure of Rt/R0
  */
 
-#define PTS1k_A  3.9083E-3
-#define PTS1k_B  -5.775E-7
-#define PTS1k_C  -4.183E-12
+#define PTS_A  3.9083E-3
+#define PTS_B  -5.775E-7
+#define PTS_C  -4.183E-12
 
 /* -55 to 0 deg C
  *
@@ -231,7 +231,9 @@ int pi_temp2volt_K(lua_State * L)
 
 /* pi_rt2temp_PTS( reading, pullup ) -- Convert reading to temperature, PTS
  * @reading -- Ratio of Vref reading [0,1) for resistor divider (pullup over PTS)
- * @pullup -- Value of pullup resistor (in kOhms)
+ * @pullup -- Value of pullup resistor (as a ratio to R0 for the PTS resistor)
+ *      eg. a 27k pullup with 1k PTS => 27k/1k => 27
+ *          a 10k pullup with 100 Ohm PTS => 10k/100 => 100
  * --------
  * Returns temperature in degC
  */
@@ -248,7 +250,7 @@ int pi_rt2temp_PTS(lua_State * L)
 
    Rt_R0 = (pullup*reading)/(1.0-reading) ;
 
-   lua_pushnumber( L, (sqrt(PTS1k_A*PTS1k_A-4*PTS1k_B + 4*PTS1k_B*Rt_R0) - PTS1k_A)/(2*PTS1k_B) );
+   lua_pushnumber( L, (sqrt(PTS_A*PTS_A-4*PTS_B + 4*PTS_B*Rt_R0) - PTS_A)/(2*PTS_B) );
 
    return 1 ;
 }
@@ -266,7 +268,7 @@ int pi_temp2rt_PTS(lua_State * L)
    temp = luaL_checknumber( L, 1 );
    luaL_argcheck( L, temp >= 0 && temp <= posPTSLIMIT, 1, "out of range [0," tostr(posPTSLIMIT) "]" );
 
-   lua_pushnumber( L, (temp * PTS1k_B + PTS1k_A) * temp + 1 );
+   lua_pushnumber( L, (temp * PTS_B + PTS_A) * temp + 1 );
 
    return 1 ;
 }
