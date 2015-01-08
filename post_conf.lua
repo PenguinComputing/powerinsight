@@ -52,7 +52,7 @@ if MainCarrier == "PN=10020355" then
   if TCCHeader == "PN=10019889" then
     -- Add junction temperature sensors
     table.insert( T,
-        {conn="Tja", name="Tja", spi=pi.spi1_0, bank=0, mux=0x68, temp="PTS", pullup=27},
+        {conn="Tja", name="Tja", spi=pi.spi1_0, bank=0, mux=0x68, temp="PTS", pullup=27}
       )
     table.insert( T,
         {conn="Tjb", name="Tjb", spi=pi.spi1_0, bank=1, mux=0x68, temp="PTS", pullup=27}
@@ -64,11 +64,11 @@ if MainCarrier == "PN=10020355" then
   -- Expansion carriers
   -- TODO: None exist yet, although theoretically, you could plug
   --            Temperature carriers into the EXP1/2/3 connectors
-  if EXP1Header = "PN=100xxxxx" then
+  if EXP1Header == "PN=100xxxxx" then
   end
-  if EXP2Header = "PN=100xxxxx" then
+  if EXP2Header == "PN=100xxxxx" then
   end
-  if EXP3Header = "PN=100xxxxx" then
+  if EXP3Header == "PN=100xxxxx" then
   end
 elseif MainCarrier == "PN=100xxxxx" then
   -- PowerInsight v1.0
