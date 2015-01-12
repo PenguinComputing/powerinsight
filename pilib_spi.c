@@ -321,6 +321,10 @@ int pi_spi_message(lua_State * L)
  * @num -- bank number to select
  * --------
  * Returns nothing
+ *
+ * TODO: Add state tracking so we don't set the bank bits
+ *      if the desired bank is already selected and/or only
+ *      write the bits that change.
  */
 int pi_setbank(lua_State * L)
 {
