@@ -216,11 +216,17 @@ int pi_filter(lua_State* L)
    lua_Number  factor ;
    lua_Number  new ;
 
-   last = luaL_checknumber( L, 1 );
    factor = luaL_checknumber( L, 2 );
+   luaL_argcheck( L, factor >= 0.0 && factor <= 1.0, 2, "out of range [0,1]" );
+
    new = luaL_checknumber( L, 3 );
 
-   luaL_argcheck( L, factor >= 0.0 && factor <= 1.0, 2, "out of range [0,1]" );
+   if( lua_isnil( L, 1 ) ) {
+      /* Assume first time, uninitialized last */
+      last = new ;
+   } else {
+      last = luaL_checknumber( L, 1 );
+   }
 
    lua_pushnumber( L, new + (last - new)*factor );
    return 1 ;
