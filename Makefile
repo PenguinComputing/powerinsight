@@ -20,5 +20,5 @@ depclean:
 	luac -o $@ $<
 
 # Dependencies (from "gcc -MMD")
-SRCS = $(glob *.c)
+SRCS = $(wildcard *.c)
 -include $(SRCS:.c=.d)
