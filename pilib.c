@@ -47,9 +47,6 @@ luaL_Reg pi_funcs[] = {
          {"sens_shunt10", pi_sens_shunt10},
          {"sens_shunt25", pi_sens_shunt25},
          {"sens_shunt50", pi_sens_shunt50},
-         {"getraw_temp", pi_getraw_temp},
-         {"getraw_volt", pi_getraw_volt},
-         {"getraw_amp",  pi_getraw_amp},
          {"volt2temp_K", pi_volt2temp_K},
          {"temp2volt_K", pi_temp2volt_K},
          {"rt2temp_PTS", pi_rt2temp_PTS},
@@ -62,10 +59,6 @@ luaL_Reg pi_funcs[] = {
          };
 
 int pi_sc620_init(lua_State * L) { return 0 ; }
-
-int pi_getraw_temp(lua_State * L) { return 0 ; }
-int pi_getraw_volt(lua_State * L) { return 0 ; }
-int pi_getraw_amp(lua_State * L) { return 0 ; }
 
 int pi_setled_temp(lua_State * L) { return 0 ; }
 int pi_setled_main(lua_State * L) { return 0 ; }
