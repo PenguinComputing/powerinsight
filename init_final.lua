@@ -36,6 +36,17 @@ local function ads8344_init ( fd )
 end
 P.ads8344_init = ads8344_init
 
+-- A word about "cs, mux" pairs.
+-- CS: A "cs" object (Chip Select) roughly corresponds to a specific
+--      ADC chip on some carrier.  It has links to the SPI channel (with
+--      it's bank control object) and the bank that should be selected.
+--      Since the SPI object includes the chip selection, this object
+--      maps to a single ADC chip.
+-- MUX: The "mux" value is used to tell the ADC which of the available
+--      channels to select for conversion.  The PowerInsight ADC all
+--      have integrated analog mux functions and this value is used to
+--      configure that to select a specific sensor.
+-- The two together select a specific sensor (voltage, current, or temp)
 local function ads8344_read( cs, mux )
   local s = cs.spi
   s.bank:set(cs.bank)
@@ -43,18 +54,30 @@ local function ads8344_read( cs, mux )
 end
 P.ads8344_read = ads8344_read
 
--- FIXME: Assumes PGA set to 16!!!
+-- NOTE: At the time ads1256_init is called, be sure
+--      to save the PGA setting as cs.scale=1/gain
 local function ads1256_read( cs, mux )
   local s = cs.spi
-  s.bank:set( cs.bank )
+  s.bank:set(cs.bank)
   if cs.cmux ~= mux then
     ads1256_setmux(s.fd, mux, 0)
     cs.cmux = mux
   end
-  return ads1256_getraw(s.fd, 1/16.0)
---  return ads1256_getraw(s.fd, cs.scale)
+  return ads1256_getraw(s.fd, cs.scale)
 end
+P.ads1256_read = ads1256_read
 
+-- Filter factory for the above XXX_read functions (readfn)
+local function filter_factory( f, readfn )
+  return function (cs, mux) cs[mux]=P.filter(cs[mux],f,readfn(cs,mux)) ; return cs[mux] end
+end
+P.filter_factory = filter_factory
+
+-- Read the cache (either filtered or update when requested
+local function cache_read( cs, mux ) return cs[mux] end
+P.cache_read = cache_read
+
+-- Object meta-functions for BANK and SPI objects
 local bank_mt
 local function bank_new ( s )
   setmetatable( s, bank_mt )
@@ -113,13 +136,13 @@ P.spi_new = spi_new
 --      of sensors.  A matching connector must be found
 --      in the list.  If a matching connector does
 --      not already exist, an error is thrown
-
+--
 -- NewSensors() does the same, but only if a matchinging connector
 --      does NOT already exist (creating a new connector/sensor)
 -- AddConnectors() creates connectors in the table (partial sensor
 --      objects) with the connector names, chip select info and
---      bank settings for each.  An __index metatable is also
---      set for each object to reduce duplication.
+--      bank settings for each.  An __index metatable can also
+--      be set for each object to reduce duplication.
 
 
 local M  -- Main carrier
@@ -207,20 +230,21 @@ local function MainCarrier ( s )
     -- Onboard sensors
     local vccsens = {
         conn="Vcc", name="Vcc",
-        vcs=OBD.CS0B, mux=7, vraw=ads8344_read,
-        volt="Vcc"
+        vcs=OBD.CS0B, mux=7, vraw=cache_read,
+        update=function ( s ) s.vcs[s.mux]=ads8344_read(s.vcs,s.mux) end,
+        volt=function ( s ) return 4.096/s.vcs[s.mux] end
       }
     local tjmsens = {
         conn="Tjm", name="Tjm",
         tcs=OBD.CS1B, mux=7,
-        traw=function (cs,mux) cs[mux]=P.filter(cs[mux],0.7,ads8344_read(cs,mux)) ; return cs[mux] end,
+        traw=filter_factory(0.7, ads8344_read),
         temp="PTS", pullup=10
       }
-    NewSensors( vccsens, tjmsens )
+    P.NewSensors( vccsens, tjmsens )
 
     -- Onboard connectors
     local hdr = OBD
-    AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read },
+    P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens },
         { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J3",  mux=2, acs=hdr.CS0A, vcs=hdr.CS1A },
@@ -249,17 +273,23 @@ local function MainCarrier ( s )
   end
 end
 P.MainCarrier = MainCarrier
-MainCarrier = MainCarrier -- EXPORT
+_G.MainCarrier = MainCarrier -- EXPORT
 
 local function SetHeader( hdr, PN )
-  local pn = string.match( "^PN=(%d+)$", PN )
-  if not pn then pn = PN end
+  if hdr == nil or hdr.name == nil then
+    error( "Header does not exist", 2 )
+    os.exit(1)
+  end
 
   -- hdr Part Number already set?
   if hdr.PN then
     error( "Redefinition of expansion header: "..hdr.name, 2 )
     os.exit(1)
   end
+
+  -- parse Part Number
+  local pn = string.match( "^PN=(%d+)$", PN )
+  if not pn then pn = PN end
 
   -- Configure known Expansion boards
   if tostring(pn) == "10019889" then
@@ -271,27 +301,38 @@ local function SetHeader( hdr, PN )
 
     -- Initialize the ADC on this carrier
     local csa=hdr.CS0A
-    csa.spi.bank:set(csa.bank) ; P.ads1256_init(csa.spi.fd, 2000, 16)
+    csa.spi.bank:set(csa.bank)
+    P.ads1256_init(csa.spi.fd, 2000, 16)
     csa.scale = 1/16
+
     local csb=hdr.CS0B
-    csb.spi.bank:set(csb.bank) ; P.ads1256_init(csb.spi.fd, 2000, 16)
+    csb.spi.bank:set(csb.bank)
+    P.ads1256_init(csb.spi.fd, 2000, 16)
     csb.scale = 1/16
 
     -- Add junction temperature sensors
+    local tja_update = filter_factory(0.8, ads1256_read)
     local tja = {
         conn=p.."Tja", name=p.."Tja",
-        tcs=hdr.CS0A, mux=0x68, traw=ads1256_read,
-        temp="PTS", pullup=27
+        tcs=hdr.CS0A, mux=0x68, traw=cache_read,
+        update=function ( s ) local r=tja_update(s.tcs,s.mux)
+              s.cjtv=P.temp2volt_K(P.rt2temp_PTS(r,s.pullup)) end,
+        temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],s.pullup) end,
+        pullup=27
       }
+    local tjb_update = filter_factory(0.8, ads1256_read)
     local tjb = {
         conn=p.."Tjb", name=p.."Tjb",
-        tcs=hdr.CS0B, mux=0x68, traw=ads1256_read,
-        temp="PTS", pullup=27
+        tcs=hdr.CS0B, mux=0x68, traw=cache_read,
+        update=function ( s ) local r=tjb_update(s.tcs,s.mux)
+              s.cjtv=P.temp2volt_K(P.rt2temp_PTS(r,s.pullup)) end,
+        temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],s.pullup) end,
+        pullup=27
       }
-    NewSensors( tja, tjb )
+    P.NewSensors( tja, tjb )
 
     -- Create connector list with cs/mux mappings
-    AddConnectors( hdr, { traw=ads1256_read },
+    P.AddConnectors( hdr, { traw=ads1256_read, vref=2.048 },
         { conn="T1", tcs=hdr.CS0A, mux=0x01, cj=tja },
         { conn="T2", tcs=hdr.CS0A, mux=0x23, cj=tja },
         { conn="T3", tcs=hdr.CS0A, mux=0x45, cj=tja },
@@ -314,15 +355,37 @@ local function SetHeader( hdr, PN )
 end
 
 P.TCCHeader = function ( pn ) SetHeader( P.TCC, pn ) end
-TCCHeader = P.TCCHeader  -- EXPORT
-EXP4Header = TCCHeader
+_G.TCCHeader = P.TCCHeader  -- EXPORT
+_G.EXP4Header = TCCHeader
 P.EXP1Header = function ( pn ) SetHeader( P.EXP1, pn ) end
-EXP1Header = P.EXP1Header  -- EXPORT
+_G.EXP1Header = P.EXP1Header  -- EXPORT
 P.EXP2Header = function ( pn ) SetHeader( P.EXP2, pn ) end
-EXP2Header = P.EXP2Header  -- EXPORT
+_G.EXP2Header = P.EXP2Header  -- EXPORT
 P.EXP3Header = function ( pn ) SetHeader( P.EXP3, pn ) end
-EXP3Header = P.EXP3Header  -- EXPORT
+_G.EXP3Header = P.EXP3Header  -- EXPORT
 
+
+# For Users .conf files
+_G.Sensors = P.Sensors  -- EXPORT
+
+local function volt_12v ( s ) return P.sens_12v( s.vraw(s.vcs,s.mux) ); end
+_G.volt_12v = volt_12v
+local function volt_5v ( s ) return P.sens_5v( s.vraw(s.vcs,s.mux) ); end
+_G.volt_5v = volt_5v
+local function volt_3v3 ( s ) return P.sens_3v3( s.vraw(s.vcs,s.mux) ); end
+_G.volt_3v3 = volt_3v3
+local function amp_acs713_20 ( s ) return P.sens_acs713_20( s.araw(s.acs,s.mux) );end
+_G.amp_acs713_20 = amp_acs713_20
+local function amp_shunt10 ( s ) return P.sens_shunt10( s.araw(s.acs,s.mux), s.vcc:volt() ) end
+_G.amp_shunt10 = amp_shunt10
+local function amp_shunt25 ( s ) return P.sens_shunt25( s.araw(s.acs,s.mux), s.vcc:volt() ) end
+_G.amp_shunt25 = amp_shunt25
+local function amp_shunt50 ( s ) return P.sens_shunt50( s.araw(s.acs,s.mux), s.vcc:volt() ) end
+_G.amp_shunt50 = amp_shunt50
+local function temp_typeK ( s ) return P.volt2temp_K( s.traw(s.tcs,s.mux)*s.vref + s.cj.cjtv ) end
+_G.temp_typeK = temp_typeK
+local function power( s ) local v = s:volt() ; local a = s:amp() ; return s:volt() * s:amp(), v, a end
+_G.power = power
 
 --[[
 local function private()
