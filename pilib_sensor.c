@@ -141,8 +141,9 @@ int pi_sens_acs723_20(lua_State * L)
  *    circuit to add an offset and a small additional gain.
  * The offset is set by resistors R4 and R5 between Vcc and GND
  * The secondary gain is set by R1 and R2 feedback resistors
- * The summation is done using R3 resistor in series and the
- *    Thevinin equivalent resistance of the offset R4/R5 divider.
+ * The summation is done using R3 resistor in series with the
+ *    differential amplifier output and the Thevinin equivalent
+ *    resistance of the offset R4/R5 divider.
  * The transfer function is:
  *   ( Current * Shunt ) * 10  =>  Vamplified (Va)
  *   R3  =>  Ramplified (Ra)
@@ -169,6 +170,8 @@ int pi_sens_acs723_20(lua_State * L)
  *   Sensor = Vcc * Reading
  * Solving for I gives
  *   I = Vcc * (Reading * 95157 - 4600.2) / (Shunt * 1421461.8)
+ * Rearranging to give a minimum of pre-computable constants (Shunt is a const)
+ *   I = Vcc * (Reading - 4600.2/95157) * (95157/(Shunt * 1421461.8))
  *
  * pi_sens_shunt10 -- Shunt resistor current sensor (10mOhm)
  * @reading -- "raw" reading in range [0,1)
