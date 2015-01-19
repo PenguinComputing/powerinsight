@@ -150,7 +150,12 @@ int pi_volt2temp_K(lua_State * L)
    vref = luaL_optnumber( L, 2, 1.0 );
    reading *= vref * 1000.0 ;  /* to milli-Volts */
    if( reading < invNegmVLIMIT || reading > invPosmVLIMIT ) {
-      return luaL_error( L, "bad arguments to volt2temp_K, out of range [%f,%f]", invNegmVLIMIT/1000.0, invPosmVLIMIT/1000.0 );
+#ifdef RANGE2ERROR
+      return luaL_error( L, "bad arguments #1*#2 to volt2temp_K, out of range [%g, %g] mVolts", invNegmVLIMIT, invPosmVLIMIT );
+#else
+      lua_pushnumber( L, NAN );
+      return 1 ;
+#endif
    }
 
    if( reading < 0 ) {
@@ -179,7 +184,14 @@ int pi_temp2volt_K(lua_State * L)
    temp = luaL_checknumber( L, 1 );
    vref = luaL_optnumber( L, 2, 1.0 );
 
-   luaL_argcheck( L, temp >= negTempLIMIT && temp <= posTempLIMIT, 1, "out of range [" tostr(negTempLIMIT) "," tostr(posTempLIMIT) "]" );
+   if( temp < negTempLIMIT || temp > posTempLIMIT ) {
+#ifdef RANGE2ERROR
+      return luaL_error( L, "bad argument #1 to temp2volt_K (out of range [%g, %g] degC)", negTempLimit, posTempLIMIT );
+#else
+      lua_pushnumber( L, NAN );
+      return 1 ;
+#endif
+   }
 
    if( temp < 0 ) {
       reading = evalPoly( temp, negTemp, sizeof(negTemp)/sizeof(*negTemp)-1, NULL );
@@ -189,7 +201,6 @@ int pi_temp2volt_K(lua_State * L)
    reading /= 1000.0 * vref ; /* to Volts/Vref */
 
    lua_pushnumber( L, reading );
-
    return 1 ;
 }
 
@@ -242,6 +253,7 @@ int pi_rt2temp_PTS(lua_State * L)
    lua_Number  reading ;
    lua_Number  pullup ;
    lua_Number  Rt_R0 ;
+   lua_Number  temp ;
 
    reading = luaL_checknumber( L, 1 );
    luaL_argcheck( L, reading >= 0.0 && reading < 1.0, 1, "out of range [0,1)" );
@@ -250,8 +262,19 @@ int pi_rt2temp_PTS(lua_State * L)
 
    Rt_R0 = (pullup*reading)/(1.0-reading) ;
 
-   lua_pushnumber( L, (sqrt(PTS_A*PTS_A-4*PTS_B + 4*PTS_B*Rt_R0) - PTS_A)/(2*PTS_B) );
+   if( Rt_R0 < 0.8 or Rt_R0 > 1.6 ) {
+      /* Out of range [-51,155] */
+#ifdef RANGE2ERROR
+      return luaL_error( L, "bad arguments #1, #2 to rt2temp_PTS (Rt/R0 out of range [%g, %g])", 0.8, 1.6 );
+#else
+      temp = NAN ;
+#endif
+   } else {
+      /* Good enough (<.5LSB) for 16 bits w/10k pullup from -50 to 155 */
+      temp = (sqrt(PTS_A*PTS_A - 4*PTS_B + 4*PTS_B*Rt_R0) - PTS_A)/(2*PTS_B);
+   }
 
+   lua_pushnumber( L, temp );
    return 1 ;
 }
 
@@ -266,9 +289,13 @@ int pi_temp2rt_PTS(lua_State * L)
    lua_Number  temp ;
 
    temp = luaL_checknumber( L, 1 );
-   luaL_argcheck( L, temp >= 0 && temp <= posPTSLIMIT, 1, "out of range [0," tostr(posPTSLIMIT) "]" );
+   luaL_argcheck( L, temp >= negPTSLIMIT && temp <= posPTSLIMIT, 1, "out of range [" tostr(negPTSLIMIT) "," tostr(posPTSLIMIT) "]" );
 
-   lua_pushnumber( L, (temp * PTS_B + PTS_A) * temp + 1 );
+   if( temp < 0 ) {
+      lua_pushnumber( L, (( (temp-100)*temp*PTS_C + PTS_B)*temp + PTS_A) * temp + 1 );
+   } else {
+      lua_pushnumber( L, (temp * PTS_B + PTS_A) * temp + 1 );
+   }
 
    return 1 ;
 }
