@@ -262,7 +262,7 @@ int pi_rt2temp_PTS(lua_State * L)
 
    Rt_R0 = (pullup*reading)/(1.0-reading) ;
 
-   if( Rt_R0 < 0.8 or Rt_R0 > 1.6 ) {
+   if( Rt_R0 < 0.8 || Rt_R0 > 1.6 ) {
       /* Out of range [-51,155] */
 #ifdef RANGE2ERROR
       return luaL_error( L, "bad arguments #1, #2 to rt2temp_PTS (Rt/R0 out of range [%g, %g])", 0.8, 1.6 );
