@@ -49,7 +49,7 @@ int pi_spi_mode(lua_State * L)
 
    ret = ioctl( fd, request, &mode );
    if( ret == -1 ) {
-      return luaL_error( L, strerror(errno) );
+      return luaL_error( L, "ioctl(MODE) error: %s", strerror(errno) );
    }
 
    if( RDnWR ) {
@@ -101,7 +101,7 @@ int pi_spi_maxspeed(lua_State * L)
 
    ret = ioctl( fd, request, &maxspeed );
    if( ret == -1 ) {
-      return luaL_error( L, strerror(errno) );
+      return luaL_error( L, "ioctl(MAX_SPEED_HZ) error: %s", strerror(errno) );
    }
 
    if( RDnWR ) {

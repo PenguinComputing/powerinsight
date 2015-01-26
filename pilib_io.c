@@ -35,7 +35,7 @@ int pi_open(lua_State * L)
    filename = luaL_checkstring( L, 1 );
    fd = open( filename, O_RDWR );
    if( fd < 0 ) {
-      return luaL_error( L, strerror( errno ) );
+      return luaL_error( L, "error openining '%s': %s", filename, strerror( errno ) );
    }
    lua_pushinteger( L, fd );
    return 1 ;
