@@ -1,11 +1,16 @@
 -- Final Initialization of Lua Environment Before .CONF File
+
+-- Globals
 S = { } -- Sensors (both Temp and Power (Volt+Amp)
+byName = { } -- Index of conn and name fields to sensor objects
+Types = { } -- Mapping strings to sensor functions
+-- MANY more exported below.  see _G.xxx = xxx
 
 do -- Create/extend pi (Power Insight) package
 local P = package.loaded["pi"] or {}
 
-if P.version ~= "v0.1" then
-  io.stderr:write( P.ARGV0, ": WARNING: Version mismatch between binary and .lua code\nExpected v0.1, got ", P.version, "\n" )
+if P.version ~= "v0.2" then
+  io.stderr:write( P.ARGV0, ": WARNING: Version mismatch between binary and .lua code\nExpected v0.2, got ", P.version, "\n" )
 end
 
 -- NOTE: this function is a performance optimization that overlaps
@@ -54,8 +59,10 @@ local function ads8344_read( cs, mux )
 end
 P.ads8344_read = ads8344_read
 
--- NOTE: At the time ads1256_init is called, be sure
---      to save the PGA setting as cs.scale=1/gain
+-- ads1256_init(...) is implemented in pilib_ads1256.c
+
+-- NOTE: At the time ads1256_init is called, be sure to save the PGA
+--      setting as cs.scale=1/gain because it's needed here!
 local function ads1256_read( cs, mux )
   local s = cs.spi
   s.bank:set(cs.bank)
@@ -81,8 +88,8 @@ P.cache_read = cache_read
 local bank_mt
 local function bank_new ( s )
   setmetatable( s, bank_mt )
-  local k,v
-  for k,v in ipairs(s.name) do
+  local k, v
+  for k, v in ipairs(s.name) do
     s[k] = s[k] or P.open(v)
   end
   s:set(0)
@@ -111,6 +118,49 @@ spi_mt = {
   }
 P.spi_new = spi_new
 
+-- Sensor transfer functions  ALL EXPORTED
+local function volt_12v ( s ) return P.sens_12v( s.vraw(s.vcs,s.mux) ); end
+_G.volt_12v = volt_12v
+local function volt_5v ( s ) return P.sens_5v( s.vraw(s.vcs,s.mux) ); end
+_G.volt_5v = volt_5v
+local function volt_3v3 ( s ) return P.sens_3v3( s.vraw(s.vcs,s.mux) ); end
+_G.volt_3v3 = volt_3v3
+local function amp_acs713_20 ( s ) return P.sens_acs713_20( s.araw(s.acs,s.mux) );end
+_G.amp_acs713_20 = amp_acs713_20
+local function amp_acs713_30 ( s ) return P.sens_acs713_30( s.araw(s.acs,s.mux) );end
+_G.amp_acs713_30 = amp_acs713_30
+local function amp_acs723_10 ( s ) return P.sens_acs723_10( s.araw(s.acs,s.mux) );end
+_G.amp_acs723_10 = amp_acs723_10
+local function amp_acs723_20 ( s ) return P.sens_acs723_20( s.araw(s.acs,s.mux) );end
+_G.amp_acs723_20 = amp_acs723_20
+local function amp_shunt10 ( s ) return P.sens_shunt10( s.araw(s.acs,s.mux), s.vcc:volt() ) end
+_G.amp_shunt10 = amp_shunt10
+local function amp_shunt25 ( s ) return P.sens_shunt25( s.araw(s.acs,s.mux), s.vcc:volt() ) end
+_G.amp_shunt25 = amp_shunt25
+local function amp_shunt50 ( s ) return P.sens_shunt50( s.araw(s.acs,s.mux), s.vcc:volt() ) end
+_G.amp_shunt50 = amp_shunt50
+local function temp_typeK ( s ) return P.volt2temp_K( s.traw(s.tcs,s.mux)*s.vref + s.cj.cjtv ) end
+_G.temp_typeK = temp_typeK
+local function temp_PTS ( s ) return P.rt2temp_PTS( s.traw(s.tcs,s.mux), s.pullup ) end
+_G.temp_PTS = temp_PTS
+local function power( s ) local v = s:volt() ; local a = s:amp() ; return s:volt() * s:amp(), v, a end
+_G.power = power
+
+-- Types: index of sensor functions
+Types = { ["12v"] = volt_12v, ["12"] = volt_12v,
+          ["5v"] = volt_5v, ["5"] = volt_5v,
+          ["3v3"] = volt_3v3, ["3.3v"] = volt_3v3, ["3.3"] = volt_3v3,
+          acs713 = amp_acs713_20, acs713_20 = amp_acs713_20,
+          acs713_30 = amp_acs713_30,
+          acs723 = amp_acs723_10, acs723_10 = amp_acs723_10,
+          acs723_20 = amp_acs723_20,
+          shunt10 = amp_shunt10,
+          shunt25 = amp_shunt25,
+          shunt50 = amp_shunt50,
+          typeK = temp_typeK,
+          PTS = temp_PTS
+        }
+
 -- Configuration support functions
 --
 -- The user configures the carriers like this:
@@ -130,19 +180,21 @@ P.spi_new = spi_new
 --            ...
 --       )
 -- NOTE: The volt, amp, and temp parameters can also be a user defined
---      function with the signature:  function (self,raw) { }
+--      function with the signature:  function (self) { }
 --      Check the code or documentation for more details on user functions
+--
 -- Sensors() adds sensor items details to the the list
 --      of sensors.  A matching connector must be found
 --      in the list.  If a matching connector does
 --      not already exist, an error is thrown
 --
--- NewSensors() does the same, but only if a matchinging connector
+-- AddSensors() does the same, but only if a matching connector
 --      does NOT already exist (creating a new connector/sensor)
+--
 -- AddConnectors() creates connectors in the table (partial sensor
 --      objects) with the connector names, chip select info and
---      bank settings for each.  An __index metatable can also
---      be set for each object to reduce duplication.
+--      bank settings for each.  An __index metatable is also
+--      set for each object to reduce duplicate entries.
 
 
 local M  -- Main carrier
@@ -166,84 +218,84 @@ local function MainCarrier ( s )
     local spi1_bank = bank_new{
         name={ "/sys/class/gpio/gpio31/value", "/sys/class/gpio/gpio30/value" }
         }
-    P.spi1_bank = spi1_bank
+    M.spi1_bank = spi1_bank
     local spi2_bank = bank_new{
         name={ "/sys/class/gpio/gpio44/value", "/sys/class/gpio/gpio45/value", "/sys/class/gpio/gpio46/value" }
         }
-    P.spi2_bank = spi2_bank
+    M.spi2_bank = spi2_bank
     -- SPI hardware
-    spi1_0 = spi_new{ -- Temp
+    local spi1_0 = spi_new{ -- Temp
         name="/dev/spidev1.0",
         bank=spi1_bank,
         }
-    P.spi1_0 = spi1_0
+    M.spi1_0 = spi1_0
     local spi2_0 = spi_new{ -- Amps
         name="/dev/spidev2.0",
         bank=spi2_bank,
         }
-    P.spi2_0 = spi2_0
+    M.spi2_0 = spi2_0
     local spi2_1 = spi_new{ -- Volts
         name="/dev/spidev2.1",
         bank=pi.spi2_bank,
         }
-    P.spi2_1 = spi2_1
+    M.spi2_1 = spi2_1
     -- Onboard Power
-    local OBD =  { CS0A={ spi=P.spi2_0, bank=0 }, CS0B={ spi=P.spi2_0, bank=1 },
-                   CS1A={ spi=P.spi2_1, bank=0 }, CS1B={ spi=P.spi2_1, bank=1 },
+    local OBD =  { CS0A={ spi=spi2_0, bank=0 }, CS0B={ spi=spi2_0, bank=1 },
+                   CS1A={ spi=spi2_1, bank=0 }, CS1B={ spi=spi2_1, bank=1 },
                    I2C=0, -- 9516 enable mask
                    name="OBD", prefix=""
                 }
-    P.OBD = OBD
+    M.OBD = OBD
     -- Expansion headers
-    local EXP1 = { CS0A={ spi=P.spi2_0, bank=2 }, CS0B={ spi=P.spi2_0, bank=3 },
-                   CS1A={ spi=P.spi2_1, bank=2 }, CS1B={ spi=P.spi2_1, bank=3 },
+    local EXP1 = { CS0A={ spi=spi2_0, bank=2 }, CS0B={ spi=spi2_0, bank=3 },
+                   CS1A={ spi=spi2_1, bank=2 }, CS1B={ spi=spi2_1, bank=3 },
                    I2C=1, -- 9516 enable mask
                    name="EXP1", prefix="E1"
                 }
-    P.EXP1 = EXP1
-    local EXP2 = { CS0A={ spi=P.spi2_0, bank=4 }, CS0B={ spi=P.spi2_0, bank=5 },
-                   CS1A={ spi=P.spi2_1, bank=4 }, CS1B={ spi=P.spi2_1, bank=5 },
+    M.EXP1 = EXP1
+    local EXP2 = { CS0A={ spi=spi2_0, bank=4 }, CS0B={ spi=spi2_0, bank=5 },
+                   CS1A={ spi=spi2_1, bank=4 }, CS1B={ spi=spi2_1, bank=5 },
                    I2C=2, -- 9516 enable mask
                    name="EXP2", prefix="E2"
                 }
-    P.EXP2 = EXP2
-    local EXP3 = { CS0A={ spi=P.spi2_0, bank=6 }, CS0B={ spi=P.spi2_0, bank=7 },
-                   CS1A={ spi=P.spi2_1, bank=6 }, CS1B={ spi=P.spi2_1, bank=7 },
+    M.EXP2 = EXP2
+    local EXP3 = { CS0A={ spi=spi2_0, bank=6 }, CS0B={ spi=spi2_0, bank=7 },
+                   CS1A={ spi=spi2_1, bank=6 }, CS1B={ spi=spi2_1, bank=7 },
                    I2C=4, -- 9516 enable mask
                    name="EXP3", prefix="E3"
                 }
-    P.EXP3 = EXP3
+    M.EXP3 = EXP3
     -- TCC is special
-    local TCC =  { CS0A={ spi=P.spi1_0, bank=0 }, CS0B={ spi=P.spi1_0, bank=1 },
-                   CS1A={ spi=P.spi1_0, bank=2 }, CS1B={ spi=P.spi1_0, bank=3 },
+    local TCC =  { CS0A={ spi=spi1_0, bank=0 }, CS0B={ spi=spi1_0, bank=1 },
+                   CS1A={ spi=spi1_0, bank=2 }, CS1B={ spi=spi1_0, bank=3 },
                    I2C=8, -- 9516 enable mask
                    name="TCC", prefix="E4"
                 }
-    P.TCC  = TCC
+    M.TCC  = TCC
     local EXP4 = TCC  -- Could be used as an expansion header
-    P.EXP4 = EXP4
+    M.EXP4 = EXP4
 
     -- Initialize the ADC on this carrier
     spi2_0.bank:set(0) ; ads8344_init( spi2_0.fd ) ; ads8344_init( spi2_1.fd )
     spi2_0.bank:set(1) ; ads8344_init( spi2_0.fd ) ; ads8344_init( spi2_1.fd )
 
     -- Onboard sensors
+    local hdr = OBD
     local vccsens = {
-        conn="Vcc", name="Vcc",
+        conn="Vcc",
         vcs=OBD.CS0B, mux=7, vraw=cache_read,
         update=function ( s ) s.vcs[s.mux]=ads8344_read(s.vcs,s.mux) end,
         volt=function ( s ) return 4.096/s.vcs[s.mux] end
       }
     local tjmsens = {
-        conn="Tjm", name="Tjm",
+        conn="Tjm",
         tcs=OBD.CS1B, mux=7,
         traw=filter_factory(0.7, ads8344_read),
-        temp="PTS", pullup=10
+        temp=temp_PTS, pullup=10
       }
-    P.NewSensors( vccsens, tjmsens )
+    P.AddSensors( hdr, vccsens, tjmsens )
 
     -- Onboard connectors
-    local hdr = OBD
     P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens },
         { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS1A },
@@ -272,6 +324,7 @@ local function MainCarrier ( s )
     os.exit(1)
   end
 end
+P.M = M
 P.MainCarrier = MainCarrier
 _G.MainCarrier = MainCarrier -- EXPORT
 
@@ -313,23 +366,23 @@ local function SetHeader( hdr, PN )
     -- Add junction temperature sensors
     local tja_update = filter_factory(0.8, ads1256_read)
     local tja = {
-        conn=p.."Tja", name=p.."Tja",
+        conn="Tja",
         tcs=hdr.CS0A, mux=0x68, traw=cache_read,
         update=function ( s ) local r=tja_update(s.tcs,s.mux)
-              s.cjtv=P.temp2volt_K(P.rt2temp_PTS(r,s.pullup)) end,
-        temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],s.pullup) end,
+              s.cjtv=P.temp2volt_K(P.rt2temp_PTS(r,27)) end,
+        temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],27) end,
         pullup=27
       }
     local tjb_update = filter_factory(0.8, ads1256_read)
     local tjb = {
-        conn=p.."Tjb", name=p.."Tjb",
+        conn="Tjb",
         tcs=hdr.CS0B, mux=0x68, traw=cache_read,
         update=function ( s ) local r=tjb_update(s.tcs,s.mux)
-              s.cjtv=P.temp2volt_K(P.rt2temp_PTS(r,s.pullup)) end,
-        temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],s.pullup) end,
+              s.cjtv=P.temp2volt_K(P.rt2temp_PTS(r,27)) end,
+        temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],27) end,
         pullup=27
       }
-    P.NewSensors( tja, tjb )
+    P.AddSensors( hdr, tja, tjb )
 
     -- Create connector list with cs/mux mappings
     P.AddConnectors( hdr, { traw=ads1256_read, vref=2.048 },
@@ -365,27 +418,8 @@ P.EXP3Header = function ( pn ) SetHeader( P.EXP3, pn ) end
 _G.EXP3Header = P.EXP3Header  -- EXPORT
 
 
-# For Users .conf files
+-- For Users .conf files
 _G.Sensors = P.Sensors  -- EXPORT
-
-local function volt_12v ( s ) return P.sens_12v( s.vraw(s.vcs,s.mux) ); end
-_G.volt_12v = volt_12v
-local function volt_5v ( s ) return P.sens_5v( s.vraw(s.vcs,s.mux) ); end
-_G.volt_5v = volt_5v
-local function volt_3v3 ( s ) return P.sens_3v3( s.vraw(s.vcs,s.mux) ); end
-_G.volt_3v3 = volt_3v3
-local function amp_acs713_20 ( s ) return P.sens_acs713_20( s.araw(s.acs,s.mux) );end
-_G.amp_acs713_20 = amp_acs713_20
-local function amp_shunt10 ( s ) return P.sens_shunt10( s.araw(s.acs,s.mux), s.vcc:volt() ) end
-_G.amp_shunt10 = amp_shunt10
-local function amp_shunt25 ( s ) return P.sens_shunt25( s.araw(s.acs,s.mux), s.vcc:volt() ) end
-_G.amp_shunt25 = amp_shunt25
-local function amp_shunt50 ( s ) return P.sens_shunt50( s.araw(s.acs,s.mux), s.vcc:volt() ) end
-_G.amp_shunt50 = amp_shunt50
-local function temp_typeK ( s ) return P.volt2temp_K( s.traw(s.tcs,s.mux)*s.vref + s.cj.cjtv ) end
-_G.temp_typeK = temp_typeK
-local function power( s ) local v = s:volt() ; local a = s:amp() ; return s:volt() * s:amp(), v, a end
-_G.power = power
 
 --[[
 local function private()

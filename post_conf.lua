@@ -1,88 +1,62 @@
 -- Post .conf file configuration
 --
--- Expect the following globals to be set by users .conf file:
--- MainCarrier = "PN=100xxxxx"
---      100xxxxx is the Penguin part number of the connected part
--- TCCHeader = "PN=100xxxxx"
--- EXP1Header = "PN=100xxxxx"
--- EXP2Header = "PN=100xxxxx"
--- EXP3Header = "PN=100xxxxx"
---
--- TODO: Retrieve part numbers from eeproms automatically (init_final.lua)
 
--- Expect the user to populate the J array of power sensor info objects
--- J = { { conn="J1", name="Optional name", volt="5v", amp="acs713_20" }
---       { conn="J2", name="ATX3v3", volt="3v3", amp="shunt10" } ... }
--- And the T array with temperature sensor info objects
--- T = { { conn="T1", name="A name", temp="K" } ... }
--- NOTE: The volt, amp, and temp parameters can also be a user defined
---      function with the signature:  function (self,raw) { }
---      Check the code or documentation for more details on user functions
---
-if MainCarrier == "PN=10020355" then
-  -- PowerInsight v2.1
-  -- Bank select hardware
-  pi.spi1_bank = pi.bank_new{
-      name={ "/sys/class/gpio/gpio31/value", "/sys/class/gpio/gpio30/value" }
-      }
-  pi.spi2_bank = pi.bank_new{
-      name={ "/sys/class/gpio/gpio44/value", "/sys/class/gpio/gpio45/value", "/sys/class/gpio/gpio46/value" }
-      }
-  -- SPI hardware
-  pi.spi1_0 = pi.spi_new{ -- Temp
-      name="/dev/spidev1.0",
-      bank=pi.spi1_bank,
-      }
-  pi.spi2_0 = pi.spi_new{ -- Amps
-      name="/dev/spidev2.0",
-      bank=pi.spi2_bank,
-      }
-  pi.spi2_1 = pi.spi_new{ -- Volts
-      name="/dev/spidev2.1",
-      bank=pi.spi2_bank,
-      }
-  table.insert( T,
-      {conn="Tjm", name="Tjm", spi=pi.spi2_1, bank=1, mux=7, temp="PTS", pullup=10}
-    )
-  table.insert( J,
-      {conn="Vcc", name="Vcc", spi=pi.spi2_0, bank=1, mux=7, volt="Vcc" }
-    )
-  -- Configure expansion connectors
-  -- Temperature carrier
-  if TCCHeader == "PN=10019889" then
-    -- Add junction temperature sensors
-    table.insert( T,
-        {conn="Tja", name="Tja", spi=pi.spi1_0, bank=0, mux=0x68, temp="PTS", pullup=27}
-      )
-    table.insert( T,
-        {conn="Tjb", name="Tjb", spi=pi.spi1_0, bank=1, mux=0x68, temp="PTS", pullup=27}
-      )
-  elseif TCCHeader == "PN=100xxxxx" then
-    -- TODO: Expansion carriers plugged into the TCC header need a different
-    --          map of spi/bank pairs due to single chipselect.
-  end
-  -- Expansion carriers
-  -- TODO: None exist yet, although theoretically, you could plug
-  --            Temperature carriers into the EXP1/2/3 connectors
-  if EXP1Header == "PN=100xxxxx" then
-  end
-  if EXP2Header == "PN=100xxxxx" then
-  end
-  if EXP3Header == "PN=100xxxxx" then
-  end
-elseif MainCarrier == "PN=100xxxxx" then
-  -- PowerInsight v1.0
-  -- SPI ports
-  -- Analog input ports
-else
-  io.stderr:write( "Unknown MainCarrier value: ", tostring(MainCarrier), "\n" )
-  os.exit(1)
-end
+-- Global
+Update = { } -- List of "update" sensors
 
--- Finalize the sensor configurations
+-- Finalize the system configuration
+do
+
 -- Loop through configured sensors
---    Hook up to carrier/SPI infrastructure in each sensor
---       T.byname index by name="xxx" for each sensor
---       Parse conn="T#" or "E#T#" into spi/bank/mux values
+--    Collect "update" sensors and update their values
+  local k, v, s
+  for k, s in ipairs( S ) do
+    if s.update ~= nil then
+      table.insert(Update,s)
+      s:update( )
+    end
+  end
+
+-- Default App function
+  local function defaultApp (...)
+    local args = { ... }
+    if #args == 0 then
+      -- No arguments, read and display every named sensor
+      for k, s in ipairs( S ) do
+        if s.name ~= nil then
+          table.insert( args, s.name )
+        end
+      end
+    end
+
+    -- Loop through args, read each and print
+    local start = pi.gettime( )
+    io.write( string.format( "# Starting at %.6f sec\n", start ) )
+    for k, v in ipairs( args ) do
+      s = byName[v]
+      if s == nil then
+        io.write( string.format( "%-10s NOT FOUND\n", v ) )
+      elseif s.temp ~= nil then
+        io.write( string.format( "%-10s %7.2f degC\n", v, s:temp( ) ) )
+      elseif s.volt ~= nil and s.amp ~= nil then
+        io.write( string.format( "%-10s %8.3f Watts [ %7.3f Volts %7.3f Amps ]\n", v, s:power( ) ) )
+      elseif s.volt ~= nil and s.amp == nil then
+        io.write( string.format( "%-10s %8.3f Volts\n", v, s:volt( ) ) )
+      else
+        io.write( string.format( "%-10s UNREADABLE\n", v ) )
+      end
+    end
+    io.write( string.format( "# Completed in %.6f sec\n", pi.gettime(start) ) )
+  end
+
+-- If user didn't provide an App global, export the default App
+  if type(App) ~= "nil" or type(App) ~= "function" then
+    error( "App global is not a function" )
+  end
+
+  if type(App) == "nil" then
+    _G.App = defaultApp
+  end
+end
 
 -- ex: set sw=2 sta et : --

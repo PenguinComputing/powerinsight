@@ -47,6 +47,9 @@ int pi_setled_temp(lua_State * L);
 int pi_setled_main(lua_State * L);
 int pi_gettime(lua_State * L);
 int pi_filter(lua_State * L);
+int pi_AddConnectors(lua_State * L);
+int pi_Sensors(lua_State * L);
+int pi_AddSensors(lua_State * L);
 
 #endif /* PILIB_H */
 

@@ -55,6 +55,9 @@ luaL_Reg pi_funcs[] = {
          {"setled_main", pi_setled_main},
          {"gettime",     pi_gettime},
          {"filter",      pi_filter},
+         {"Sensors",     pi_Sensors},
+         {"AddSensors",  pi_AddSensors},
+         {"AddConnectors", pi_AddConnectors},
          {NULL, NULL},
          };
 
@@ -68,12 +71,6 @@ int pi_setled_main(lua_State * L) { return 0 ; }
 int pi_register( lua_State *L )
 {
    int  ret ;
-
-   /* We assume an empty stack, ie, no arguments */
-   if( lua_gettop( L ) != 0 ) {
-      fputs( "WARNING: pi_register called with non-empty stack. Dropped\n", stderr );
-      lua_settop( L, 0 );
-   }
 
    /* FIXME: For Lua 5.2, use luaL_setfuncs but do the
     *   same thing, ie: create global reference to package
@@ -124,7 +121,7 @@ int pi_register( lua_State *L )
    /* dostring "init" for initialization from lua */
    ret = luaL_loadstring(L,
 /**** BEGIN LUA CODE ****/
-"pi.version = 'v0.1'\n"
+"pi.version = 'v0.2'\n"
 /**** END LUA CODE ****/
       );
    if( ret != 0 || (ret = lua_pcall(L, 0, 0, 0)) ) {
@@ -203,7 +200,7 @@ int pi_gettime(lua_State * L)
  *    is related to the factor by the following identity
  *    factor = exp(-1/tau)
  */
-int pi_filter(lua_State* L)
+int pi_filter(lua_State * L)
 {
    lua_Number  last ;
    lua_Number  factor ;
@@ -219,10 +216,438 @@ int pi_filter(lua_State* L)
       last = new ;
    } else {
       last = luaL_checknumber( L, 1 );
+      /* If filter was infected with NaN, reset it */
+      if( isnan( last ) ) {
+         last = new ;
+      }
    }
 
    lua_pushnumber( L, new + (last - new)*factor );
    return 1 ;
 }
+
+/* AddConnectors(...) creates connectors in the S table (partial sensor
+ *      objects) with the connector names, chip select info and
+ *      bank settings for each.  An __index metatable is also
+ *      set for each object to reduce duplication.
+ *
+ * pi_AddConnectors( hdr, index, ... )
+ * @hdr -- Header object to which these sensors are connected
+ * @index -- __index method for metatable with items common to all sensors
+ * @... -- List of connector table objects
+ * -----
+ * @count -- Number of connectors processed
+ */
+int pi_AddConnectors(lua_State * L)
+{
+   int  nargs = lua_gettop( L );
+   int  haveMetatbl = 0 ;
+   char  prefix[16] ;
+   size_t  plen ;  /* Prefix length */
+   const char *  p ;
+   int  gS ;  /* global S */
+   int  gSlen ;  /* Current objlen of S */
+   int  gbyName ;  /* global byName */
+   int  idx ;
+
+
+   /* Check arguments:  Table, Table, 3 or more arguments */
+   luaL_checktype( L, 1, LUA_TTABLE );
+
+   if( lua_isnoneornil( L, 2 ) ) {
+      /* nil or too few arguments */
+      haveMetatbl = 0 ;
+   } else if( lua_isfunction( L, 2 ) ) {
+      /* If it's a function, make it __index */
+      lua_createtable( L, 0, 1 );
+      lua_pushvalue( L, 2 );
+      lua_setfield( L, -2, "__index" );
+      lua_replace( L, 2 );  /* Replace function in stack with metatable */
+      haveMetatbl = 2 ;  /* Slot for metatable */
+   } else if( lua_istable( L, 2 ) ) {
+      /* Does it look like it's already a metatable? */
+      lua_getfield( L, 2, "__index" );
+      if( lua_isnil( L, -1 ) ) {
+         /* Nope, so create a metatable with this as __index */
+         lua_createtable( L, 0, 1 );
+         lua_pushvalue( L, 2 );
+         lua_setfield( L, -2, "__index" );
+         lua_replace( L, 2 );
+         haveMetatbl = 2 ;
+      } else {
+         /* Cool, just use it as is ... */
+         haveMetatbl = 2 ;
+      }
+      lua_pop( L, 1 );  /* Clean up getfield */
+   } else {
+      return luaL_argerror( L, 2, "not __index func/table or metatable" );
+   }
+
+   if( nargs < 3 ) {
+      return luaL_error( L, "requires three or more arguments" );
+   }
+
+   lua_getfield( L, 1, "prefix" );
+   p = lua_tolstring( L, -1, &plen );
+   strncpy( prefix, p, sizeof(prefix) );
+   prefix[sizeof(prefix)-1] = '\0' ;
+   if( strlen( prefix ) != plen ) {
+      fprintf( stderr, "%s: Embedded zero in prefix: [%.*s], truncated", ARGV0, (int)sizeof(prefix), prefix );
+      plen = strlen( prefix );
+   }
+
+   /* Get globals:
+    *    S (sensors table),
+    *    byName (index of connector and sensor names)
+    */
+   lua_getfield( L, LUA_GLOBALSINDEX, "S" );
+   gS = lua_gettop( L );
+   if( lua_type( L, gS ) != LUA_TTABLE ) {
+      return luaL_error( L, "global S is not a table" );
+   }
+   gSlen = lua_objlen( L, -1 );
+
+   lua_getfield( L, LUA_GLOBALSINDEX, "byName" );
+   gbyName = lua_gettop( L );
+   if( lua_type( L, gbyName ) != LUA_TTABLE ) {
+      return luaL_error( L, "global byName is not a table" );
+   }
+
+   for( idx = 3 ; idx <= nargs ; ++idx ) {
+      /* Verify is table */
+      if( lua_type( L, idx ) != LUA_TTABLE ) {
+         return luaL_argerror( L, idx, "not a table" );
+      }
+
+      if( haveMetatbl ) {
+        /* Set metatable hook */
+        lua_pushvalue( L, haveMetatbl );
+        lua_setmetatable( L, idx );
+      }
+
+      /* Add prefix to connector name */
+      lua_getfield( L, idx, "conn" );
+      if( lua_isnil( L, -1 ) ) {
+         return luaL_argerror( L, idx, "missing 'conn' field" );
+      }
+      p = lua_tostring( L, -1 );
+      strncpy( prefix + plen, p, sizeof(prefix) - plen -1 );
+
+      /* Index connector name (add to byName) */
+      lua_pushstring( L, prefix );
+      lua_pushvalue( L, -1 );
+      lua_pushvalue( L, -1 );  /* We need three copies for the following code */
+      lua_setfield( L, idx, "conn" );  /* Change conn field, use one copy */
+      lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
+      if( ! lua_isnil( L, -1 ) ) {
+         return luaL_argerror( L, idx, "duplicate connector name" );
+      }
+      lua_pop( L, 1 ); /* clean up gettable */
+      lua_pushvalue( L, idx );
+      lua_settable( L, gbyName ); /* Index by conn in byName, use last copy */
+
+      /* Store in S */
+      lua_pushnumber( L, ++gSlen );
+      lua_pushvalue( L, idx );
+      lua_settable( L, gS );
+   }
+
+   lua_pushnumber( L, nargs - 2 );
+   return 1 ;
+}
+
+/* Sensors(...) adds sensor items details to the the list
+ *      of sensors.  A matching connector must be found
+ *      in the list.  If a matching connector does
+ *      not already exist, an error is thrown
+ *
+ * pi_Sensors( ... )
+ * @... -- List of sensor detail objects
+ * -----
+ * @count -- Number of sensors processed
+ */
+int pi_Sensors(lua_State * L)
+{
+   int  nargs = lua_gettop( L );
+   int  gS ;  /* global S */
+   int  gbyName ;  /* global byName */
+   int  gTypes ;  /* global Types */
+   const char *  p ;
+   const char *  q ;
+   int  idx ;
+
+
+   /* Get globals: S (sensors table),
+    *           byName (index of names),
+    *           Types (index of sensor transfer functions)
+    */
+   lua_getfield( L, LUA_GLOBALSINDEX, "S" );
+   gS = lua_gettop( L );
+   if( lua_type( L, gS ) != LUA_TTABLE ) {
+      return luaL_error( L, "global S is not a table" );
+   }
+
+   lua_getfield( L, LUA_GLOBALSINDEX, "byName" );
+   gbyName = lua_gettop( L );
+   if( lua_type( L, gbyName ) != LUA_TTABLE ) {
+      return luaL_error( L, "global byName is not a table" );
+   }
+
+   lua_getfield( L, LUA_GLOBALSINDEX, "Types" );
+   gTypes = lua_gettop( L );
+   if( lua_type( L, gTypes ) != LUA_TTABLE ) {
+      return luaL_error( L, "global Types is not a table" );
+   }
+
+   for( idx = 1 ; idx <= nargs ; ++idx ) {
+
+      if( lua_type( L, idx ) != LUA_TTABLE ) {
+         return luaL_argerror( L, idx, "not a table" );
+      }
+
+      /* Find connector in S -- if not throw error */
+      lua_getfield( L, idx, "conn" );
+      if( lua_isnil( L, -1 ) ) {
+         return luaL_argerror( L, idx, "missing 'conn' field" );
+      }
+      p = lua_tostring( L, -1 );
+      if( p == NULL ) {
+         return luaL_argerror( L, idx, "'conn' is not a string" );
+      }
+
+      lua_gettable( L, gbyName );  /* consume one 'conn' */
+      if( lua_isnil( L, -1 ) ) {
+         return luaL_error( L, "bad argument #%d to Sensors (connector '%s' not found)", idx, p );
+      }
+
+      /* STACK NOTE:  <param>, S, byName, Types, byName[idx.conn] aka S[conn], <top> */
+
+      /* Verify S.conn.name not set -- if so, throw error */
+      lua_getfield( L, -1, "name" );
+      if( ! lua_isnil( L, -1 ) ) {
+         return luaL_argerror( L, idx, "connector already declared, name already set" );
+      }
+      lua_pop( L, 1 );  /* Clean up getfield */
+
+      /* Get new name */
+      lua_getfield( L, idx, "name" );
+      p = lua_tostring( L, -1 );
+      if( lua_isnil( L, -1 ) ) {
+         /* No user-specified name, so use an empty string,
+          * but don't add to byName
+          */
+         lua_pop( L, -1 );  /* clean up nil */
+         lua_pushstring( L, "" );  /* name value to set */
+      } else if( p == NULL ) {
+         return luaL_argerror( L, idx, "name is not a string" );
+      } else {
+         /* Verify byName.name not set -- if so, throw error */
+         lua_pushvalue( L, -1 );  /* Make copy */
+         lua_gettable( L, gbyName );  /* Use copy */
+         if( ! lua_isnil( L, -1 ) ) {
+            return luaL_error( L, "bad argument #%d to Sensors (name '%s' already used)", idx, p );
+         }
+         lua_pop( L, 1 );  /* Clean gettable */
+
+         /* Add S.conn.name to byName index */
+         lua_pushvalue( L, -1 );  /* Copy name */
+         lua_pushvalue( L, -3 );  /* Copy connector */
+         lua_settable( L, gbyName );  /* byName[new.name] = conn, use copies */
+      }
+
+      /* Copy name to S.conn */
+      lua_setfield( L, -2, "name" );  /* Uses name value at TOS */
+
+      /* STACK NOTE:  <param>, S, byName, Types, byName[idx.conn] aka S[conn], <top> */
+
+      /* Copy "everything" (exceptions: Xcs, mux, conn, name) to S.conn
+       *        for temp, volt, amp:  if isString, lookup in Types and
+       *                substitute -- or throw error
+       */
+      lua_pushnil( L );
+      while( lua_next( L, idx ) != 0 ) {
+         /* key @ -2, value @ -1 */
+         if( lua_isstring( L, -2 ) ) {
+            p = lua_tostring( L, -2 );
+            if( strcmp( "name", p ) == 0 || strcmp( "conn", p ) == 0
+                  || strcmp( "mux", p ) == 0
+                  || ((*p=='t' || *p=='a' || *p=='v') && strcmp("cs", p+1)==0)
+                  ) {
+               /* Don't copy */
+               continue ; 
+            } else if( strcmp( "temp", p ) == 0 || strcmp( "volt", p ) == 0
+                  || strcmp( "amp", p ) == 0 ) {
+               /* Check value for string or function */
+               if( lua_isstring( L, -1 ) ) {
+                  lua_gettable( L, gTypes );
+                  if( lua_isnil( L, -1 ) ) {
+                     /* Unrecognized Type */
+                     return luaL_error( L, "bad argument #%d to Sensors (%s is unrecognized type)", idx, p );
+                  }
+                  /* Right value is now at TOS */
+               } else if( ! lua_isfunction( L, -1 ) ) {
+                  /* It's not usable */
+                  return luaL_error( L, "bad argument #%d to Sensors (%s is invalid value)", idx, p );
+               } /* else TOS is a function, drop through */
+            } /* else just copy it, drop through */
+
+            /* Copy it */
+            lua_pushvalue( L, -2 );  /* Copy key */
+            lua_insert( L, -2 );  /* Swap -1, TOS */
+            lua_settable( L, -4 );  /* Consume copy and value */
+         } else if( lua_isnumber( L, -2 ) ) {
+            /* Just copy it */
+            lua_pushvalue( L, -2 );
+            lua_insert( L, -2 );
+            lua_settable( L, -4 );
+         } else {
+            /* What could it be? Ignore it */
+            lua_pop( L, 1 );  /* Drop value */
+         }
+      }
+
+      lua_pop( L, 1 );  /* Drop S[conn] */
+      if( gTypes != lua_gettop( L ) ) {
+         fprintf( stderr, "%s: INTERNAL ERROR: Stack push/pop mismatch in Sensors: TOS is %d, should be %d\n", ARGV0, lua_gettop( L ), gTypes );
+      }
+   }
+
+   lua_pushnumber( L, nargs );
+   return 1 ;
+}
+
+/* AddSensors(...) does the same as Sensors, but only if a matching
+ *      connector does NOT already exist.  This function effectively
+ *      combines functions of both AddConnectors and Sensors
+ *
+ * pi_AddSensors( hdr, ... )
+ * @hdr -- Header object to which these sensors are connected
+ * @... -- List of complete connector/sensor table objects
+ * -----
+ * @count -- Number of objects processed
+ */
+static const char * const  TypeFields[] = { "temp", "volt", "amp" };
+#define TFLEN (sizeof(TypeFields)/sizeof(*TypeFields))
+int pi_AddSensors(lua_State * L)
+{
+   int  nargs = lua_gettop( L );
+   char  prefix[16] ;
+   size_t  plen ;  /* Prefix length */
+   const char *  p ;
+   int  gS ;  /* global S */
+   int  gSlen ;  /* Current objlen of S */
+   int  gbyName ;  /* global byName */
+   int  gTypes ;  /* global Types */
+   const char * const *  tf ;
+   int  idx ;
+
+
+   /* Check arguments:  Table, 2 or more arguments */
+   luaL_checktype( L, 1, LUA_TTABLE );
+
+   if( nargs < 2 ) {
+      return luaL_error( L, "requires two or more arguments" );
+   }
+
+   lua_getfield( L, 1, "prefix" ); /* from hdr */
+   p = lua_tolstring( L, -1, &plen );
+   strncpy( prefix, p, sizeof(prefix) );
+   prefix[sizeof(prefix)-1] = '\0' ;
+   if( strlen( prefix ) != plen ) {
+      fprintf( stderr, "%s: Embedded zero in prefix: [%.*s], truncated", ARGV0, (int)sizeof(prefix), prefix );
+      plen = strlen( prefix );
+   }
+
+   /* Get globals:
+    *    S (sensors table),
+    *    byName (index of connector and sensor names)
+    *    Types (index of sensor transfer functions)
+    */
+   lua_getfield( L, LUA_GLOBALSINDEX, "S" );
+   gS = lua_gettop( L );
+   if( lua_type( L, gS ) != LUA_TTABLE ) {
+      return luaL_error( L, "global S is not a table" );
+   }
+   gSlen = lua_objlen( L, -1 );
+
+   lua_getfield( L, LUA_GLOBALSINDEX, "byName" );
+   gbyName = lua_gettop( L );
+   if( lua_type( L, gbyName ) != LUA_TTABLE ) {
+      return luaL_error( L, "global byName is not a table" );
+   }
+
+   lua_getfield( L, LUA_GLOBALSINDEX, "Types" );
+   gTypes = lua_gettop( L );
+   if( lua_type( L, gTypes ) != LUA_TTABLE ) {
+      return luaL_error( L, "global Types is not a table" );
+   }
+
+   for( idx = 2 ; idx <= nargs ; ++idx ) {
+      /* Verify is table */
+      if( lua_type( L, idx ) != LUA_TTABLE ) {
+         return luaL_argerror( L, idx, "not a table" );
+      }
+
+      /* Add prefix to connector name */
+      lua_getfield( L, idx, "conn" );
+      if( lua_isnil( L, -1 ) ) {
+         return luaL_argerror( L, idx, "missing 'conn' field" );
+      }
+      p = lua_tostring( L, -1 );
+      strncpy( prefix + plen, p, sizeof(prefix) - plen -1 );
+
+      /* Index connector name (add to byName) */
+      lua_pushstring( L, prefix );
+      lua_pushvalue( L, -1 );
+      lua_pushvalue( L, -1 );  /* We need three copies for the following code */
+      lua_setfield( L, idx, "conn" );  /* Change conn field, use one copy */
+      lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
+      if( ! lua_isnil( L, -1 ) ) {
+         return luaL_error( L, "bad argument #%d to AddSensors (duplicate connector name: %s)", idx, p );
+      }
+      lua_pop( L, 1 ); /* clean up gettable */
+      lua_pushvalue( L, idx );
+      lua_settable( L, gbyName ); /* Index by conn in byName, use last copy */
+
+      /* Foreach "temp", "volt", "amp" */
+      for( tf = TypeFields ; tf - TypeFields < TFLEN ; ++tf ) {
+         lua_getfield( L, idx, *tf );
+         /* Check value for string or function */
+         if( lua_isstring( L, -1 ) ) {
+            /* Lookup string in Types */
+            lua_gettable( L, gTypes );
+            if( lua_isnil( L, -1 ) ) {
+               /* Unrecognized Type */
+               return luaL_error( L, "bad argument #%d to AddSensors (%s is unrecognized type)", idx, *tf );
+            }
+            /* Replace value in table */
+            lua_setfield( L, idx, *tf );
+         } else if( ! lua_isnil( L, -1 ) && ! lua_isfunction( L, -1 ) ) {
+            /* It exists, but is not usable */
+            return luaL_error( L, "bad argument #%d to AddSensors (%s is invalid value)", idx, *tf );
+         }
+      }
+
+      /* Store in S */
+      lua_pushnumber( L, ++gSlen );
+      lua_pushvalue( L, idx );
+      lua_settable( L, gS );
+
+      if( gTypes != lua_gettop( L ) ) {
+         fprintf( stderr, "%s: INTERNAL ERROR: Stack push/pop mismatch in AddSensors: TOS is %d, should be %d\n", ARGV0, lua_gettop( L ), gTypes );
+      }
+   }
+
+   lua_pushnumber( L, nargs - 1 );
+   return 1 ;
+}
+
+/*
+-- foreach argument
+--      Verify is table
+--      Verify byName.conn is NOT in S -- if not throw error
+--      Check temp, volt, amp
+--              if isString, lookup in Types and substitute -- or throw error
+*/
 
 /* ex: set sw=3 sta et : */
