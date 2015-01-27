@@ -407,14 +407,14 @@ local function SetHeader( hdr, PN )
   end
 end
 
-P.TCCHeader = function ( pn ) SetHeader( P.TCC, pn ) end
+P.TCCHeader = function ( pn ) SetHeader( M.TCC, pn ) end
 _G.TCCHeader = P.TCCHeader  -- EXPORT
 _G.EXP4Header = TCCHeader
-P.EXP1Header = function ( pn ) SetHeader( P.EXP1, pn ) end
+P.EXP1Header = function ( pn ) SetHeader( M.EXP1, pn ) end
 _G.EXP1Header = P.EXP1Header  -- EXPORT
-P.EXP2Header = function ( pn ) SetHeader( P.EXP2, pn ) end
+P.EXP2Header = function ( pn ) SetHeader( M.EXP2, pn ) end
 _G.EXP2Header = P.EXP2Header  -- EXPORT
-P.EXP3Header = function ( pn ) SetHeader( P.EXP3, pn ) end
+P.EXP3Header = function ( pn ) SetHeader( M.EXP3, pn ) end
 _G.EXP3Header = P.EXP3Header  -- EXPORT
 
 
