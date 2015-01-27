@@ -332,6 +332,7 @@ int pi_AddConnectors(lua_State * L)
       }
       p = lua_tostring( L, -1 );
       strncpy( prefix + plen, p, sizeof(prefix) - plen -1 );
+      lua_pop( L, 1 );  /* Done with 'conn' */
 
       /* Index connector name (add to byName) */
       lua_pushstring( L, prefix );
@@ -340,7 +341,7 @@ int pi_AddConnectors(lua_State * L)
       lua_setfield( L, idx, "conn" );  /* Change conn field, use one copy */
       lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
       if( ! lua_isnil( L, -1 ) ) {
-         return luaL_argerror( L, idx, "duplicate connector name" );
+         return luaL_error( L, "bad argument #%d to AddConnectors (duplicate connector name: %s)", idx, prefix );
       }
       lua_pop( L, 1 ); /* clean up gettable */
       lua_pushvalue( L, idx );
@@ -415,7 +416,7 @@ int pi_Sensors(lua_State * L)
          return luaL_argerror( L, idx, "'conn' is not a string" );
       }
 
-      lua_gettable( L, gbyName );  /* consume one 'conn' */
+      lua_gettable( L, gbyName );  /* consume 'conn' */
       if( lua_isnil( L, -1 ) ) {
          return luaL_error( L, "bad argument #%d to Sensors (connector '%s' not found)", idx, p );
       }
@@ -595,6 +596,7 @@ int pi_AddSensors(lua_State * L)
       }
       p = lua_tostring( L, -1 );
       strncpy( prefix + plen, p, sizeof(prefix) - plen -1 );
+      lua_pop( L, 1 );  /* Done with "conn" */
 
       /* Index connector name (add to byName) */
       lua_pushstring( L, prefix );
@@ -603,7 +605,7 @@ int pi_AddSensors(lua_State * L)
       lua_setfield( L, idx, "conn" );  /* Change conn field, use one copy */
       lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
       if( ! lua_isnil( L, -1 ) ) {
-         return luaL_error( L, "bad argument #%d to AddSensors (duplicate connector name: %s)", idx, p );
+         return luaL_error( L, "bad argument #%d to AddSensors (duplicate connector name: %s)", idx, prefix );
       }
       lua_pop( L, 1 ); /* clean up gettable */
       lua_pushvalue( L, idx );
