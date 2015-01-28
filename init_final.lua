@@ -216,29 +216,37 @@ local function MainCarrier ( s )
     -- PowerInsight v2.1
     -- Bank select hardware
     local spi1_bank = bank_new{
-        name={ "/sys/class/gpio/gpio31/value", "/sys/class/gpio/gpio30/value" }
+        name={ "/sys/class/gpio/gpio31/value",
+               "/sys/class/gpio/gpio30/value" }
         }
     M.spi1_bank = spi1_bank
+
     local spi2_bank = bank_new{
-        name={ "/sys/class/gpio/gpio44/value", "/sys/class/gpio/gpio45/value", "/sys/class/gpio/gpio46/value" }
+        name={ "/sys/class/gpio/gpio44/value",
+               "/sys/class/gpio/gpio45/value",
+               "/sys/class/gpio/gpio46/value" }
         }
     M.spi2_bank = spi2_bank
+
     -- SPI hardware
     local spi1_0 = spi_new{ -- Temp
         name="/dev/spidev1.0",
         bank=spi1_bank,
         }
     M.spi1_0 = spi1_0
+
     local spi2_0 = spi_new{ -- Amps
         name="/dev/spidev2.0",
         bank=spi2_bank,
         }
     M.spi2_0 = spi2_0
+
     local spi2_1 = spi_new{ -- Volts
         name="/dev/spidev2.1",
-        bank=pi.spi2_bank,
+        bank=spi2_bank,
         }
     M.spi2_1 = spi2_1
+
     -- Onboard Power
     local OBD =  { CS0A={ spi=spi2_0, bank=0 }, CS0B={ spi=spi2_0, bank=1 },
                    CS1A={ spi=spi2_1, bank=0 }, CS1B={ spi=spi2_1, bank=1 },
@@ -350,17 +358,23 @@ local function SetHeader( hdr, PN )
 
     -- No prefix when Temp Expansion plugged into the TCC header
     if hdr.name == "TCC" then hdr.prefix = "" end
-    local p = hdr.prefix
 
     -- Initialize the ADC on this carrier
+    local ofc, sfc
     local csa=hdr.CS0A
     csa.spi.bank:set(csa.bank)
-    P.ads1256_init(csa.spi.fd, 2000, 16)
+    csa.spi:speed(2000000)
+    ofc, sfc = P.ads1256_init(csa.spi.fd, 2000, 16)
+    csa.ofc = ofc
+    csa.sfc = sfc
     csa.scale = 1/16
 
     local csb=hdr.CS0B
     csb.spi.bank:set(csb.bank)
-    P.ads1256_init(csb.spi.fd, 2000, 16)
+    csa.spi:speed(2000000)
+    ofc, sfc = P.ads1256_init(csb.spi.fd, 2000, 16)
+    csb.ofc = ofc
+    csb.sfc = sfc
     csb.scale = 1/16
 
     -- Add junction temperature sensors
