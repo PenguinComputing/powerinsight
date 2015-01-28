@@ -603,13 +603,15 @@ int pi_AddSensors(lua_State * L)
       lua_pushvalue( L, -1 );
       lua_pushvalue( L, -1 );  /* We need three copies for the following code */
       lua_setfield( L, idx, "conn" );  /* Change conn field, use one copy */
+
       lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
       if( ! lua_isnil( L, -1 ) ) {
          return luaL_error( L, "bad argument #%d to AddSensors (duplicate connector name: %s)", idx, prefix );
       }
       lua_pop( L, 1 ); /* clean up gettable */
-      lua_pushvalue( L, idx );
-      lua_settable( L, gbyName ); /* Index by conn in byName, use last copy */
+
+      lua_pushvalue( L, idx );  /* Value */
+      lua_settable( L, gbyName );  /* Index by conn in byName, use last copy */
 
       /* Foreach "temp", "volt", "amp" */
       for( tf = TypeFields ; tf - TypeFields < TFLEN ; ++tf ) {
@@ -617,16 +619,18 @@ int pi_AddSensors(lua_State * L)
          /* Check value for string or function */
          if( lua_isstring( L, -1 ) ) {
             /* Lookup string in Types */
-            lua_gettable( L, gTypes );
+            lua_gettable( L, gTypes );  /* Replaces TOS */
             if( lua_isnil( L, -1 ) ) {
                /* Unrecognized Type */
                return luaL_error( L, "bad argument #%d to AddSensors (%s is unrecognized type)", idx, *tf );
             }
             /* Replace value in table */
-            lua_setfield( L, idx, *tf );
+            lua_setfield( L, idx, *tf );  /* Cleans stack */
          } else if( ! lua_isnil( L, -1 ) && ! lua_isfunction( L, -1 ) ) {
             /* It exists, but is not usable */
             return luaL_error( L, "bad argument #%d to AddSensors (%s is invalid value)", idx, *tf );
+         } else {
+            lua_pop( L, 1 );  /* Clean up getfield */
          }
       }
 
