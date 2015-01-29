@@ -415,6 +415,9 @@ int pi_Sensors(lua_State * L)
       if( p == NULL ) {
          return luaL_argerror( L, idx, "'conn' is not a string" );
       }
+      if( verbose >= 1 ) {
+         fprintf( stderr, "Processing: %s ...\n", p );
+      }
 
       lua_gettable( L, gbyName );  /* consume 'conn' */
       if( lua_isnil( L, -1 ) ) {
@@ -437,7 +440,7 @@ int pi_Sensors(lua_State * L)
          /* No user-specified name, so use an empty string,
           * but don't add to byName
           */
-         lua_pop( L, -1 );  /* clean up nil */
+         lua_pop( L, 1 );  /* clean up nil */
          lua_pushstring( L, "" );  /* name value to set */
       } else if( p == NULL ) {
          return luaL_argerror( L, idx, "name is not a string" );
@@ -485,10 +488,11 @@ int pi_Sensors(lua_State * L)
                   || strcmp( "amp", p ) == 0 ) {
                /* Check value for string or function */
                if( lua_isstring( L, -1 ) ) {
+                  lua_tostring( L, -1 );  /* Force to string */
                   lua_gettable( L, gTypes );
                   if( lua_isnil( L, -1 ) ) {
                      /* Unrecognized Type */
-                     return luaL_error( L, "bad argument #%d to Sensors (%s is unrecognized type)", idx, p );
+                     return luaL_error( L, "bad argument #%d to Sensors (%s has unrecognized value)", idx, p );
                   }
                   /* Right value is now at TOS */
                } else if( ! lua_isfunction( L, -1 ) ) {
@@ -624,6 +628,7 @@ int pi_AddSensors(lua_State * L)
          lua_getfield( L, idx, *tf );
          /* Check value for string or function */
          if( lua_isstring( L, -1 ) ) {
+            lua_tostring( L, -1 );  /* Force to string */
             /* Lookup string in Types */
             lua_gettable( L, gTypes );  /* Replaces TOS */
             if( lua_isnil( L, -1 ) ) {
