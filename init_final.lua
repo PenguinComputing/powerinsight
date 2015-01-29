@@ -34,8 +34,8 @@ P.ads1256_getraw_setmuxL = ads1256_getraw_setmuxL
 -- Choose Lua (L) or C implementation to be the default
 P.ads1256_getraw_setmux = P.ads1256_getraw_setmuxC
 
-local function ads8344_init ( fd )
-  P.spi_maxspeed( fd, 2000000 )  -- 8MHz clock /4
+local function ads8344_init ( fd, speed )
+  P.spi_maxspeed( fd, speed or 200000 )
   P.spi_mode( fd, P.SPI_MODE_0 )
   P.spi_message( fd, P.ads8344_getmessage( 0 ) )
 end
@@ -143,7 +143,7 @@ local function temp_typeK ( s ) return P.volt2temp_K( s.traw(s.tcs,s.mux)*s.vref
 _G.temp_typeK = temp_typeK
 local function temp_PTS ( s ) return P.rt2temp_PTS( s.traw(s.tcs,s.mux), s.pullup ) end
 _G.temp_PTS = temp_PTS
-local function power( s ) local v = s:volt() ; local a = s:amp() ; return s:volt() * s:amp(), v, a end
+local function power( s ) local v = s:volt() ; local a = s:amp() ; return v*a, v, a end
 _G.power = power
 
 -- Types: index of sensor functions
@@ -208,6 +208,8 @@ local function MainCarrier ( s )
   else
     M = { PN=s }
   end
+  P.M = M  -- EXPORT/SAVE M in pi (aka P)
+
   local pn = string.match( "^PN=(%d+)$", M.PN )
   if pn then M.PN = pn else pn = M.PN end
 
@@ -304,7 +306,7 @@ local function MainCarrier ( s )
     P.AddSensors( hdr, vccsens, tjmsens )
 
     -- Onboard connectors
-    P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens },
+    P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power },
         { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J3",  mux=2, acs=hdr.CS0A, vcs=hdr.CS1A },
@@ -332,7 +334,6 @@ local function MainCarrier ( s )
     os.exit(1)
   end
 end
-P.M = M
 P.MainCarrier = MainCarrier
 _G.MainCarrier = MainCarrier -- EXPORT
 
