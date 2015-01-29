@@ -470,11 +470,16 @@ int pi_Sensors(lua_State * L)
          /* key @ -2, value @ -1 */
          if( lua_isstring( L, -2 ) ) {
             p = lua_tostring( L, -2 );
-            if( strcmp( "name", p ) == 0 || strcmp( "conn", p ) == 0
-                  || strcmp( "mux", p ) == 0
+            if( strcmp( "name", p ) == 0 || strcmp( "conn", p ) == 0 ) {
+               /* Already handled */
+               lua_pop( L, 1 );
+               continue ;
+            } else if( strcmp( "mux", p ) == 0
                   || ((*p=='t' || *p=='a' || *p=='v') && strcmp("cs", p+1)==0)
                   ) {
                /* Don't copy */
+               fprintf( stderr, "WARNING: Sensors() NOT copying field %s\n", p );
+               lua_pop( L, 1 );  /* Drop value */
                continue ; 
             } else if( strcmp( "temp", p ) == 0 || strcmp( "volt", p ) == 0
                   || strcmp( "amp", p ) == 0 ) {
@@ -503,6 +508,7 @@ int pi_Sensors(lua_State * L)
             lua_settable( L, -4 );
          } else {
             /* What could it be? Ignore it */
+            fprintf( stderr, "WARNING: Sensors NOT copying unknown field.\n" );
             lua_pop( L, 1 );  /* Drop value */
          }
       }

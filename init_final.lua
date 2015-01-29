@@ -55,7 +55,7 @@ P.ads8344_init = ads8344_init
 local function ads8344_read( cs, mux )
   local s = cs.spi
   s.bank:set(cs.bank)
-  return ads8344_getraw(P.spi_message(s.fd, P.ads8344_getmessage(mux)))
+  return P.ads8344_getraw(P.spi_message(s.fd, P.ads8344_getmessage(mux)))
 end
 P.ads8344_read = ads8344_read
 
@@ -67,10 +67,10 @@ local function ads1256_read( cs, mux )
   local s = cs.spi
   s.bank:set(cs.bank)
   if cs.cmux ~= mux then
-    ads1256_setmux(s.fd, mux, 0)
+    P.ads1256_setmux(s.fd, mux, 0)
     cs.cmux = mux
   end
-  return ads1256_getraw(s.fd, cs.scale)
+  return P.ads1256_getraw(s.fd, cs.scale)
 end
 P.ads1256_read = ads1256_read
 
