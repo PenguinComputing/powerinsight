@@ -201,7 +201,7 @@ local M  -- Main carrier
 local function MainCarrier ( s )
   if type(s) == "table" then
     if s.PN == nil then
-      error( "Missing or nil PN field in table passed to MainCarrier()", 2)
+      error( "Missing PN field in table passed to MainCarrier()", 2)
     else
       M = s
     end
@@ -210,7 +210,7 @@ local function MainCarrier ( s )
   end
   P.M = M  -- EXPORT/SAVE M in pi (aka P)
 
-  local pn = string.match( "^PN=(%d+)$", M.PN )
+  local pn = string.match( M.PN, "PN=(%d+)" )
   if pn then M.PN = pn else pn = M.PN end
 
   -- Check for known MainCarrier parts
@@ -350,7 +350,7 @@ local function SetHeader( hdr, PN )
   end
 
   -- parse Part Number
-  local pn = string.match( "^PN=(%d+)$", PN )
+  local pn = string.match( PN, "PN=(%d+)" )
   if not pn then pn = PN end
 
   -- Configure known Expansion boards
@@ -418,7 +418,9 @@ local function SetHeader( hdr, PN )
     --      * Relays, dry-contact input
     --      * Fan tach input, PWM input, PWM output, Power measurement
     -- i2c, SMBus, RS-232 expansion
-
+  else
+    error( "Unrecognized "..hdr.name.."Header part number: "..tostring(pn), 2 )
+    os.exit(1)
   end
 end
 
