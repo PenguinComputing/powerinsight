@@ -51,7 +51,7 @@ do
 
 -- If user didn't provide an App global, export the default App
   if type(App) ~= "nil" and type(App) ~= "function" then
-    error( "App global is not a function" )
+    error( "App global is type "..type(App)..", not a function" )
   end
 
   if type(App) == "nil" then
