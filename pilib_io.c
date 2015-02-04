@@ -111,7 +111,7 @@ int pi_read(lua_State * L)
 
    fd = luaL_checkint( L, 1 );
    len = luaL_optint( L, 2, 16 );
-   luaL_argcheck( L, len > 0 && len <= 4096, 2, "invalid length" );
+   luaL_argcheck( L, len > 0 && len <= 4096, 2, "invalid length [1-4096]" );
 
    buf = malloc( len );
    if( buf == NULL ) {
@@ -119,9 +119,12 @@ int pi_read(lua_State * L)
    }
    ret = read( fd, buf, len );
    if( ret < 0 ) {
-      return luaL_error( L, "read failed: %s", strerror(errno) );
+      int  save_errno = errno ;
+      free( buf );
+      return luaL_error( L, "read failed: %s", strerror(save_errno) );
    }
    lua_pushlstring( L, buf, len );
+   free( buf );
    return 1 ;
 }
 
