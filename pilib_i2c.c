@@ -54,7 +54,8 @@ int pi_i2c_device( lua_State * L )
 int pi_i2c_read( lua_State * L )
 {
    int  fd ;
-   unsigned char  addr ;
+   int  addr ;
+   unsigned char  addr_buf ;
    int  len ;
    char *  buf ;
    ssize_t  ret ;
@@ -62,12 +63,13 @@ int pi_i2c_read( lua_State * L )
    fd = luaL_checkint( L, 1 );
 
    addr = luaL_checkint( L, 2 );
-   luaL_argcheck( L, addr != (addr & 0xff), 2, "invalid address" );
+   luaL_argcheck( L, addr == (addr & 0xff), 2, "invalid address" );
 
    len = luaL_checkint( L, 3 );
    luaL_argcheck( L, len > 0 && len <= 4096, 3, "invalid length [1-4096]" );
 
-   ret = write( fd, &addr, 1 );
+   addr_buf = addr ;
+   ret = write( fd, &addr_buf, 1 );
    if( ret == -1 ) {
       return luaL_error( L, "i2c_read: write(addr) error: %s", strerror(errno) );
    }
@@ -105,7 +107,7 @@ int pi_i2c_write( lua_State * L )
    fd = luaL_checkint( L, 1 );
 
    addr = luaL_checkint( L, 2 );
-   luaL_argcheck( L, addr != (addr & 0xff), 2, "invalid address" );
+   luaL_argcheck( L, addr == (addr & 0xff), 2, "invalid address" );
 
    data = lua_tolstring( L, 3, &len );
    luaL_argcheck( L, data != NULL && len > 0 && len <= 4096, 3, "invalid data" );

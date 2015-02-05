@@ -289,6 +289,7 @@ local function MainCarrier ( s )
     local i2c_2 = i2c_new{ -- on-carrier devices
         name="/dev/i2c-2", -- NOTE: SoC calls this i2c-1
         }
+    M.i2c_2 = i2c_2
 
 
     -- Onboard Power
