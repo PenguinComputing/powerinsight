@@ -10,11 +10,11 @@
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <linux/types.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -78,7 +78,7 @@ int pi_write(lua_State * L)
          luaL_addchar( &b, c );
          break ;
       default :
-         luaL_argerror( L, idx, "must be string or number" );
+         return luaL_argerror( L, idx, "must be string or number" );
          break ;
       }
    }
@@ -105,7 +105,7 @@ int pi_read(lua_State * L)
 {
    int  fd ;
    int  len ;
-   __u8 *  buf ;
+   char *  buf ;
    size_t  ret ;
 
 

@@ -9,10 +9,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <sys/time.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
-#include <errno.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -140,6 +142,7 @@ int pi_register( lua_State *L )
 void luaPI_doerror( lua_State * L, int ret, const char * attempt )
 {
    const char * errstr ;
+
    if( ret != 0 ) {
       if( ret == LUA_ERRSYNTAX ) {
          fprintf( stderr, "%s: %s: Syntax error\n",
@@ -160,8 +163,9 @@ void luaPI_doerror( lua_State * L, int ret, const char * attempt )
          fprintf( stderr, "%s: %s: Unexpected error (%d)\n",
                      ARGV0, attempt, ret );
       }
-      if( errstr = luaL_checkstring( L, -1 ) ) {
-         fprintf( stderr, "%s:%s\n", ARGV0, errstr );
+      errstr = luaL_checkstring( L, -1 );
+      if( errstr != NULL ) {
+         fprintf( stderr, "%s: %s\n", ARGV0, errstr );
       }
       exit( 1 );
    }
@@ -377,7 +381,6 @@ int pi_Sensors(lua_State * L)
    int  gbyName ;  /* global byName */
    int  gTypes ;  /* global Types */
    const char *  p ;
-   const char *  q ;
    int  idx ;
 
 

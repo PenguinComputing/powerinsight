@@ -1,6 +1,6 @@
 # Makefile for Power Insight
 CC=gcc
-CFLAGS=-MMD -g -O -I/usr/include/lua5.1 -I$(PWD)/.
+CFLAGS=-MMD -g -O3 -Wall -I/usr/include/lua5.1 -I$(PWD)/.
 
 all: powerInsight init_final.lc post_conf.lc
 
