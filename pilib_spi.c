@@ -152,11 +152,7 @@ int pi_spi_message(lua_State * L)
       if( lua_type( L, cmsg +2 ) != LUA_TTABLE ) {
          free( msgs );
 /* <----- */
-         luaL_checktype( L, cmsg +2, LUA_TTABLE );
-#if DEBUG
-         fputs( "luaL_checktype returned?\n", stderr );
-#endif
-         return 1 ; /* Error object? */
+         return luaL_argerror( L, cmsg +2, "not a table" );
       }
       /* If has "tx_buf" -- It's a transmit, set len */
       lua_getfield( L, cmsg +2, "tx_buf" );
@@ -317,20 +313,19 @@ int pi_spi_message(lua_State * L)
 }
 
 /* pi_setbank( bank, num ) -- Set bank control bits
- * @bank -- table of fd of bank control bits
+ * @bank -- table of fd for bank control bits
  * @num -- bank number to select
  * --------
  * Returns nothing
  *
- * TODO: Add state tracking so we don't set the bank bits
- *      if the desired bank is already selected and/or only
- *      write the bits that change.
+ * NOTE: Also used for general GPIO toggling
  */
 int pi_setbank(lua_State * L)
 {
    int  fd ;
    int  bank ;
    size_t  bankbits ;
+   int  cur ;  /* Current bit settings */
    int  idx ;
    int  ret ;
 
@@ -338,23 +333,45 @@ int pi_setbank(lua_State * L)
    bank = luaL_checkint( L, 2 );
 
    bankbits = lua_objlen( L, 1 );
-   luaL_argcheck( L, bankbits >= 1 && bankbits <= 3, 1, "invalid number of bank bits (1 to 3)" );
+   luaL_argcheck( L, bankbits >= 1 && bankbits <= 16, 1, "invalid number of bank bits (1 to 16)" );
+
+   /* Check for saved bank.cur value */
+   lua_getfield( L, 1, "cur" );
+   if( lua_isnumber( L, -1 ) ) {
+      cur = lua_tonumber( L, -1 );
+      /* Have any bits that matter changed? */
+      if( ((cur ^ bank) & (1<<bankbits)-1) == 0 ) {
+/* <---- No changes */
+         return 0 ;
+      }
+   } else {
+      cur = -1 ;  /* No previous usable value available */
+   }
+   /* lua_pop( L, 1 ); -- leave dirt on stack */
 
    for( idx = 1 ; idx <= bankbits ; ++idx ) {
-      lua_pushinteger( L, idx );
-      lua_gettable( L, 1 );
-      if( lua_type( L, -1 ) != LUA_TNUMBER ) {
-         return luaL_argerror( L, 1, "bank bit not an fd" );
-      }
-      fd = lua_tointeger( L, -1 );
-      lseek( fd, 0, SEEK_SET );
-      ret = write( fd, bank & (1<<(idx-1)) ? "1\n" : "0\n", 2 );
-      if( ret < 0 ) {
-         return luaL_error( L, "write failed: %s", strerror(errno) );
-      } else if( ret != 2 ) {
-         return luaL_error( L, "incomplete write: %d of 2", ret );
+      if( cur < 0 || (bank ^ cur) & (1<<(idx-1)) ) {
+         lua_pushinteger( L, idx );
+         lua_gettable( L, 1 );
+         if( lua_type( L, -1 ) != LUA_TNUMBER ) {
+            return luaL_argerror( L, 1, "bank bit not an fd" );
+         }
+         fd = lua_tointeger( L, -1 );
+         lua_pop( L, 1 );  /* Have to clean up in loops */
+
+         lseek( fd, 0, SEEK_SET );
+         ret = write( fd, bank & (1<<(idx-1)) ? "1\n" : "0\n", 2 );
+         if( ret < 0 ) {
+            return luaL_error( L, "write failed: %s", strerror(errno) );
+         } else if( ret != 2 ) {
+            return luaL_error( L, "incomplete write: %d of 2", ret );
+         }
       }
    }
+
+   /* Save as s.cur */
+   lua_pushinteger( L, bank );
+   lua_setfield( L, 1, "cur" );
 
    return 0 ;
 }
