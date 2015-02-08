@@ -130,29 +130,6 @@ int pi_ads8344_getmessage(lua_State * L)
    return 1 ;
 }
 
-
-#if 0
-/* pi_ads8344_init( fd ) -- Initialize ADS1256
- * @fd -- spidev device connected to ads1256.  Assumes bank already selected
- */
-int pi_ads8344_init(lua_State * L)
-{
-   int  fd ;
-
-   fd = luaL_checkint( L, 1 );
-
-/* FIXME: Probably best done as Lua code, not C.
- *   Send a single message and throw away the result.
- *   PD[0-1] = 0b11 leaves the chip powered on.
- *   Send a second message with PD[0-1] = 0b00 powers
- *   the chip down.
- */
-
-   return 0 ;
-}
-#endif
-
-
 /* TODO: Add @scale as first argument? For symmetry with ads1256 */
 /* pi_ads8344_getraw( message, [...] ) -- Get a reading from a message
  * @message -- Table result from an spi_message command created by getmessage

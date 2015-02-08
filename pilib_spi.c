@@ -117,6 +117,16 @@ int pi_spi_maxspeed(lua_State * L)
    }
 }
 
+/* The "struct spi_ioc_transfer" has a 64-bit fields for the
+ *      tx_buf and rx_buf pointers.  But on 32-platforms like
+ *      armhf it triggers this warning, so turn it off rather
+ *      than add a bunch of additional casts or macro magic
+ *      trying to make this clean on both 64-bit and 32-bit
+ *      architectures
+ */
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+
 /* pi_spi_message( spi, {msg} [, {msg} ...] ) -- Send messages
  * @spi -- fd of spi to affect
  * @msg -- table with struct spi_ioc_transfer values
@@ -343,16 +353,26 @@ int pi_setbank(lua_State * L)
       cur = lua_tonumber( L, -1 );
       /* Have any bits that matter changed? */
       if( ((cur ^ bank) & ((1<<bankbits)-1)) == 0 ) {
+         if( debug & DBG_SPI ) {
+            fprintf( stderr, "DBG: setbank: no changes in %d bits of 0x%x to 0x%x\n", bankbits, cur, bank );
+         }
 /* <---- No changes */
          return 0 ;
       }
    } else {
       cur = -1 ;  /* No previous usable value available */
    }
+   if( debug & DBG_SPI ) {
+      fprintf( stderr, "DBG: setbank was: 0x%x, will be: 0x%x\n", cur, bank );
+   }
    /* lua_pop( L, 1 ); -- leave dirt on stack */
 
    for( idx = 1 ; idx <= bankbits ; ++idx ) {
       if( cur < 0 || (bank ^ cur) & (1<<(idx-1)) ) {
+         if( debug & DBG_SPI ) {
+            fprintf( stderr, "DBG: Changing bit %d to %d\n", idx-1, (bank & (1<<(idx-1))) != 0 );
+         }
+
          lua_pushinteger( L, idx );
          lua_gettable( L, 1 );
          if( lua_type( L, -1 ) != LUA_TNUMBER ) {
@@ -367,6 +387,10 @@ int pi_setbank(lua_State * L)
             return luaL_error( L, "write failed: %s", strerror(errno) );
          } else if( ret != 2 ) {
             return luaL_error( L, "incomplete write: %d of 2", ret );
+         }
+      } else {
+         if( debug & DBG_SPI ) {
+            fprintf( stderr, "DBG: No change bit %d\n", idx -1 );
          }
       }
    }

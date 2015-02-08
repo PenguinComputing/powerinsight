@@ -157,6 +157,15 @@ static int  gain2reg( int gain )
 }
 #define reg2gain(reg) (1<<((reg)&0x07))
 
+/* The "struct spi_ioc_transfer" has a 64-bit fields for the
+ *      tx_buf and rx_buf pointers.  But on 32-platforms like
+ *      armhf it triggers this warning, so turn it off rather
+ *      than add a bunch of additional casts or macro magic
+ *      trying to make this clean on both 64-bit and 32-bit
+ *      architectures
+ */
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
 /* wait4DRDY( fd, timeout ) -- Wait for DRDY
  * @fd -- spidev device connected to ads1256
  * @timeout -- timeout (minimum to 10msec)
