@@ -665,12 +665,5 @@ int pi_AddSensors(lua_State * L)
    return 1 ;
 }
 
-/*
--- foreach argument
---      Verify is table
---      Verify byName.conn is NOT in S -- if not throw error
---      Check temp, volt, amp
---              if isString, lookup in Types and substitute -- or throw error
-*/
 
 /* ex: set sw=3 sta et : */
