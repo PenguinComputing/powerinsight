@@ -118,6 +118,22 @@ spi_mt = {
   }
 P.spi_new = spi_new
 
+local i2c_mt
+local function i2c_new ( s )
+  setmetatable( s, i2c_mt )
+  s.fd = s.fd or P.open(s.name)
+  return s
+end
+i2c_mt = {
+    __index = {
+        new = i2c_new,
+        device = function (s,addr) P.i2c_device(s.fd, addr) end,
+        read = function (s,reg,len) P.i2c_read(s.fd, reg, len) end,
+        write = function (s,reg,data) P.i2c_write(s.fd, reg, data) end,
+    }
+  }
+P.i2c_new = i2c_new
+
 -- Sensor transfer functions  ALL EXPORTED
 local function volt_12v ( s ) return P.sens_12v( s.vraw(s.vcs,s.mux) ); end
 _G.volt_12v = volt_12v
@@ -230,6 +246,15 @@ local function MainCarrier ( s )
         }
     M.spi2_bank = spi2_bank
 
+    local i2c1_bank = bank_new{
+        name={ "/sys/class/gpio/gpio75/value",
+               "/sys/class/gpio/gpio74/value",
+               "/sys/class/gpio/gpio77/value",
+               "/sys/class/gpio/gpio76/value" }
+        }
+    M.i2c1_bank = i2c1_bank
+
+
     -- SPI hardware
     local spi1_0 = spi_new{ -- Temp
         name="/dev/spidev1.0",
@@ -248,6 +273,24 @@ local function MainCarrier ( s )
         bank=spi2_bank,
         }
     M.spi2_1 = spi2_1
+
+    -- I2C hardware   by HARDWARE name, NOT Linux...
+    local i2c_0 = i2c_new{ -- on-bone devices
+        name="/dev/i2c-0",
+        }
+    M.i2c_0 = i2c_0
+
+    local i2c_1 = i2c_new{ -- cape eeprom bus
+        name="/dev/i2c-1", -- NOTE: SoC calls this i2c-2
+        bank=i2c1_bank,
+        }
+    M.i2c_1 = i2c_1
+
+    local i2c_2 = i2c_new{ -- on-carrier devices
+        name="/dev/i2c-2", -- NOTE: SoC calls this i2c-1
+        }
+    M.i2c_2 = i2c_2
+
 
     -- Onboard Power
     local OBD =  { CS0A={ spi=spi2_0, bank=0 }, CS0B={ spi=spi2_0, bank=1 },
