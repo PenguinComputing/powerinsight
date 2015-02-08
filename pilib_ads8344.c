@@ -13,9 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
-#include <errno.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -94,13 +94,13 @@ static unsigned int chan_map[] = { 0x87, 0xc7, 0x97, 0xd7,
  */
 int pi_ads8344_getmessage(lua_State * L)
 {
-   int  mux ;
+   int  mux = -1 ;
    int  shift ;
    __u8  tx_buf[4] ;
 
    shift = luaL_optint( L, 2, 1 );
    if( shift < 0 || shift > 7 ) {
-      return luaL_argerror( L, 1, "Invalid shift value [0,7]" );
+      return luaL_argerror( L, 1, "invalid shift value [0,7]" );
    }
 
    if( lua_type( L, 1 ) == LUA_TNUMBER ) {
@@ -109,13 +109,15 @@ int pi_ads8344_getmessage(lua_State * L)
    } else if( lua_type( L, 1 ) == LUA_TTABLE ) {
       lua_getfield( L, 1, "mux" );
       if( lua_type( L, -1 ) != LUA_TNUMBER ) {
-         return luaL_argerror( L, 1, "Missing integer field 'mux'" );
+         return luaL_argerror( L, 1, "missing integer field 'mux'" );
       }
       mux = lua_tointeger( L, -1 );
       lua_pushvalue( L, 1 ); /* Copy table to top of stack */
+   } else {
+      return luaL_argerror( L, 1, "not a number or table" );
    }
    if( mux < 0 || mux > 7 ) {
-      return luaL_argerror( L, 1, "Invalid mux value [0,7]" );
+      return luaL_argerror( L, 1, "invalid mux value [0,7]" );
    }
 
    tx_buf[0] = chan_map[mux] >> shift ;
@@ -123,7 +125,7 @@ int pi_ads8344_getmessage(lua_State * L)
    tx_buf[2] = 0 ;
    tx_buf[3] = 0 ;
 
-   lua_pushlstring( L, tx_buf, 4 );
+   lua_pushlstring( L, (char *)tx_buf, 4 );
    lua_setfield( L, -2, "tx_buf" );
    return 1 ;
 }
@@ -164,7 +166,6 @@ int pi_ads8344_getraw(lua_State * L)
    int  arg ;
    lua_Number  scale ;
    lua_Number  reading ;
-   int  ret ;
 
    scale = 1.0 ; /* luaL_checknumber( L, 1, 1.0 ); */
    narg = lua_gettop( L );
@@ -181,7 +182,7 @@ int pi_ads8344_getraw(lua_State * L)
 
       /* Determine the shift (count leading zeros */
       lua_getfield( L, arg, "tx_buf" );
-      tx_buf = lua_tolstring( L, -1, &len );
+      tx_buf = (const __u8 *) lua_tolstring( L, -1, &len );
       if( tx_buf == NULL || len != 4 ) {
          return luaL_argerror( L, arg, "tx_buf missing or invalid" );
       }
@@ -201,7 +202,7 @@ int pi_ads8344_getraw(lua_State * L)
 
       /* Now get the result */
       lua_getfield( L, arg, "rx_buf" );
-      rx_buf = lua_tolstring( L, -1, &len );
+      rx_buf = (const __u8 *) lua_tolstring( L, -1, &len );
       if( rx_buf == NULL || len != 4 ) {
          return luaL_argerror( L, arg, "rx_buf missing or invalid" );
       }

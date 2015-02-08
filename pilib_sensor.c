@@ -78,11 +78,14 @@ int pi_sens_3v3(lua_State * L)
 int pi_sens_acs713_20(lua_State * L)
 {
    lua_Number  reading ;
-   lua_Number  vref = 5.0 ;
+//   lua_Number  vref = 5.0 ;
 
    reading = luaL_checknumber( L, 1 );
 //   vref = luaL_optnumber( L, 2, 5.0 );
 
+   /* We can hardcode the gain as 185mV/A at 5.0V VCC because the
+    *   gain is ratiometric to VCC and the reading is a ratio of VCC
+    */
    lua_pushnumber( L, (reading - 0.1) * (5.0/0.185) );
    return 1;
 }
@@ -94,11 +97,14 @@ int pi_sens_acs713_20(lua_State * L)
 int pi_sens_acs713_30(lua_State * L)
 {
    lua_Number  reading ;
-   lua_Number  vref = 5.0 ;
+//   lua_Number  vref = 5.0 ;
 
    reading = luaL_checknumber( L, 1 );
 //   vref = luaL_optnumber( L, 2, 5.0 );
 
+   /* We can hardcode the gain as 133mV/A at 5.0V VCC because the
+    *   gain is ratiometric to VCC and the reading is a ratio of VCC
+    */
    lua_pushnumber( L, (reading - 0.1) * (5.0/0.133) );
    return 1;
 }
@@ -110,11 +116,14 @@ int pi_sens_acs713_30(lua_State * L)
 int pi_sens_acs723_10(lua_State * L)
 {
    lua_Number  reading ;
-   lua_Number  vref = 5.0 ;
+//   lua_Number  vref = 5.0 ;
 
    reading = luaL_checknumber( L, 1 );
 //   vref = luaL_optnumber( L, 2, 5.0 );
 
+   /* We can hardcode the gain as 400mV/A at 5.0V VCC because the
+    *   gain is ratiometric to VCC and the reading is a ratio of VCC
+    */
    lua_pushnumber( L, (reading - 0.1) * (5.0/0.400) );
    return 1;
 }
@@ -126,11 +135,14 @@ int pi_sens_acs723_10(lua_State * L)
 int pi_sens_acs723_20(lua_State * L)
 {
    lua_Number  reading ;
-   lua_Number  vref = 5.0 ;
+//   lua_Number  vref = 5.0 ;
 
    reading = luaL_checknumber( L, 1 );
 //   vref = luaL_optnumber( L, 2, 5.0 );
 
+   /* We can hardcode the gain as 200mV/A at 5.0V VCC because the
+    *   gain is ratiometric to VCC and the reading is a ratio of VCC
+    */
    lua_pushnumber( L, (reading - 0.1) * (5.0/0.200) );
    return 1;
 }

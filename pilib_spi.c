@@ -10,9 +10,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <lua.h>
@@ -340,7 +342,7 @@ int pi_setbank(lua_State * L)
    if( lua_isnumber( L, -1 ) ) {
       cur = lua_tonumber( L, -1 );
       /* Have any bits that matter changed? */
-      if( ((cur ^ bank) & (1<<bankbits)-1) == 0 ) {
+      if( ((cur ^ bank) & ((1<<bankbits)-1)) == 0 ) {
 /* <---- No changes */
          return 0 ;
       }

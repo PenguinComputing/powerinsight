@@ -98,8 +98,7 @@ end
 bank_mt = {
     __index = {
         new = bank_new,
-        -- TODO: Merge this into pilib_spi.c/setbank()
-        set = function (s,b) if s.cur~=b then P.setbank(s,b); s.cur=b end end
+        set = P.setbank
     }
   }
 P.bank_new = bank_new
@@ -289,6 +288,7 @@ local function MainCarrier ( s )
     local i2c_2 = i2c_new{ -- on-carrier devices
         name="/dev/i2c-2", -- NOTE: SoC calls this i2c-1
         }
+    M.i2c_2 = i2c_2
 
 
     -- Onboard Power

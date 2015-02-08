@@ -12,10 +12,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
-#include <errno.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -253,10 +254,8 @@ int pi_ads1256_init(lua_State * L)
    int  gainreg ;
    struct timeval  start ;
    struct timeval  now ;
-   unsigned long  loops ;
    struct spi_ioc_transfer  msgs[2] ;
    __u8  bufs[12] ;
-   lua_Number  reading ;
    lua_Number  ofc ;
    lua_Number  fsc ;
    int  ret ;
@@ -425,7 +424,6 @@ int pi_ads1256_setmux(lua_State * L)
    struct spi_ioc_transfer  msgs[3] ;
    __u8  bufs[12] ;
    int  ret ;
-   lua_Number  reading ;
 
    fd = luaL_checkint( L, 1 );
    mux = luaL_checkint( L, 2 );
@@ -480,7 +478,7 @@ int pi_ads1256_rxbuf2raw(lua_State * L)
    lua_Number  scale ;
    lua_Number  reading ;
 
-   rxbuf = luaL_checklstring( L, 1, &len );
+   rxbuf = (const __u8 *) luaL_checklstring( L, 1, &len );
    luaL_argcheck( L, len >= 3, 1, "requires 3 bytes" );
    scale = luaL_optnumber( L, 2, 1.0 );
 
