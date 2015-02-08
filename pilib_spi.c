@@ -354,7 +354,7 @@ int pi_setbank(lua_State * L)
       /* Have any bits that matter changed? */
       if( ((cur ^ bank) & ((1<<bankbits)-1)) == 0 ) {
          if( debug & DBG_SPI ) {
-            fprintf( stderr, "DBG: setbank: no changes in %d bits of 0x%x to 0x%x\n", bankbits, cur, bank );
+            fprintf( stderr, "DBG: setbank: no changes in %zd bits of 0x%x to 0x%x\n", bankbits, cur, bank );
          }
 /* <---- No changes */
          return 0 ;
