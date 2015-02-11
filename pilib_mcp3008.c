@@ -103,8 +103,9 @@ int pi_mcp3008_mkmsg(lua_State * L)
 }
 
 /* pi_mcp3008_getraw( message, [...] ) -- Get a reading from a message
+ * @scale -- Scale factor to apply to readings
  * @message -- Table result from an spi_message command created by mkmsg
- * ...  -- List of results (the output of spi_message)
+ * ...  -- Additional results (the output of spi_message)
  * -----
  * @reading -- List of readings scaled to "raw" values [0,1)
  */

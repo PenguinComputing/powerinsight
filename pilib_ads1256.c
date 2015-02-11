@@ -143,11 +143,11 @@ static int  gain2reg( int gain )
       return 6 ;
    }
    if( gain >= 16 ) {
-      gain /= 16 ;
+      gain >>= 4 ;
       reg |= 4 ;
    }
    if( gain >= 4 ) {
-      gain /= 4 ;
+      gain >>= 2 ;
       reg |= 2 ;
    }
    if( gain >= 2 ) {

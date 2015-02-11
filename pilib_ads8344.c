@@ -13,9 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <errno.h>
 #include <linux/types.h>
-#include <linux/spi/spidev.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -130,25 +128,32 @@ int pi_ads8344_mkmsg(lua_State * L)
    return 1 ;
 }
 
-/* TODO: Add @scale as first argument? For symmetry with ads1256 */
-/* pi_ads8344_getraw( message, [...] ) -- Get a reading from a message
+/* pi_ads8344_getraw( [scale], message, [...] ) -- Get a reading from a message
+ * @scale -- Scale factor to apply to readings
  * @message -- Table result from an spi_message command created by mkmsg
- * ...  -- List of results (the output of spi_message)
+ * ...  -- Additional results (the output of spi_message)
  * -----
  * @reading -- List of readings scaled to "raw" values [0,1)
  */
 int pi_ads8344_getraw(lua_State * L)
 {
    int  narg ;
+   int  msgstart ;
    int  arg ;
    lua_Number  scale ;
    lua_Number  reading ;
 
-   scale = 1.0 ; /* luaL_checknumber( L, 1, 1.0 ); */
+   if( lua_isnumber( L, 1 ) ) {
+      scale = lua_tonumber( L, 1 );
+      msgstart = 2 ;
+   } else {
+      scale = 1.0 ;
+      msgstart = 1 ;
+   }
    narg = lua_gettop( L );
    luaL_checkstack( L, narg+2, "allocating stack for return values" );
 
-   for( arg = 1 ; arg <= narg ; ++arg ) {
+   for( arg = msgstart ; arg <= narg ; ++arg ) {
       const __u8 *  tx_buf ;
       const __u8 *  rx_buf ;
       size_t  len ;
@@ -189,7 +194,7 @@ int pi_ads8344_getraw(lua_State * L)
       lua_pushnumber( L, reading );
    }
 
-   return narg ;
+   return narg - msgstart +1 ;
 }
 
 
