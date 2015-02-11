@@ -38,7 +38,7 @@ luaL_Reg pi_funcs[] = {
          {"ads1256_getraw_setmuxC", pi_ads1256_getraw_setmuxC},
          {"ads1256_rxbuf2raw", pi_ads1256_rxbuf2raw},
 /*       {"ads8344_init", pi_ads8344_init}, *** Declared in init_final.lua */
-         {"ads8344_getmessage", pi_ads8344_getmessage},
+         {"ads8344_mkmsg", pi_ads8344_mkmsg},
          {"ads8344_getraw", pi_ads8344_getraw},
 /*       {"mcp3008_init", pi_mcp3008_init}, *** Declared in init_final.lua */
          {"mcp3008_mkmsg", pi_mcp3008_mkmsg},
@@ -129,7 +129,7 @@ int pi_register( lua_State *L )
    /* dostring "init" for initialization from lua */
    ret = luaL_loadstring(L,
 /**** BEGIN LUA CODE ****/
-"pi.version = 'v0.2'\n"
+"pi.version = 'v0.3'\n"
 /**** END LUA CODE ****/
       );
    if( ret != 0 || (ret = lua_pcall(L, 0, 0, 0)) ) {

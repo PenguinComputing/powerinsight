@@ -9,8 +9,8 @@ Types = { } -- Mapping strings to sensor functions
 do -- Create/extend pi (Power Insight) package
 local P = package.loaded["pi"] or {}
 
-if P.version ~= "v0.2" then
-  io.stderr:write( P.ARGV0, ": WARNING: Version mismatch between binary and .lua code\nExpected v0.2, got ", P.version, "\n" )
+if P.version ~= "v0.3" then
+  io.stderr:write( P.ARGV0, ": WARNING: Version mismatch between binary and .lua code\nExpected v0.3, got ", P.version, "\n" )
 end
 
 -- NOTE: this function is a performance optimization that overlaps
@@ -37,7 +37,7 @@ P.ads1256_getraw_setmux = P.ads1256_getraw_setmuxC
 local function ads8344_init ( fd, speed )
   P.spi_maxspeed( fd, speed or 200000 )
   P.spi_mode( fd, P.SPI_MODE_0 )
-  P.spi_message( fd, P.ads8344_getmessage( 0 ) )
+  P.spi_message( fd, P.ads8344_mkmsg( 0 ) )
 end
 P.ads8344_init = ads8344_init
 
@@ -62,7 +62,7 @@ P.mcp3008_init = mcp3008_init
 local function ads8344_read( cs, mux )
   local s = cs.spi
   s.bank:set(cs.bank)
-  return P.ads8344_getraw(P.spi_message(s.fd, P.ads8344_getmessage(mux)))
+  return P.ads8344_getraw(P.spi_message(s.fd, P.ads8344_mkmsg(mux)))
 end
 P.ads8344_read = ads8344_read
 

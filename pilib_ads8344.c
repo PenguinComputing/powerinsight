@@ -82,7 +82,7 @@
 static unsigned int chan_map[] = { 0x87, 0xc7, 0x97, 0xd7,
                                    0xa7, 0xe7, 0xb7, 0xf7 };
 
-/* pi_ads8344_getmessage( mux, [shift] ) -- Create an SPI messaage
+/* pi_ads8344_mkmsg( mux, [shift] ) -- Create an SPI messaage
  * @mux -- channel to read
  * @shift -- optional shift for the control (default: 1, stretch)
  * -- or --
@@ -92,7 +92,7 @@ static unsigned int chan_map[] = { 0x87, 0xc7, 0x97, 0xd7,
  * -----
  * @message -- Lua Table with tx_buf and len filled in
  */
-int pi_ads8344_getmessage(lua_State * L)
+int pi_ads8344_mkmsg(lua_State * L)
 {
    int  mux = -1 ;
    int  shift ;
@@ -132,7 +132,7 @@ int pi_ads8344_getmessage(lua_State * L)
 
 /* TODO: Add @scale as first argument? For symmetry with ads1256 */
 /* pi_ads8344_getraw( message, [...] ) -- Get a reading from a message
- * @message -- Table result from an spi_message command created by getmessage
+ * @message -- Table result from an spi_message command created by mkmsg
  * ...  -- List of results (the output of spi_message)
  * -----
  * @reading -- List of readings scaled to "raw" values [0,1)
