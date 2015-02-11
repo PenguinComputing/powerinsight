@@ -41,6 +41,13 @@ local function ads8344_init ( fd, speed )
 end
 P.ads8344_init = ads8344_init
 
+local function mcp3008_init ( fd, speed )
+  P.spi_maxspeed( fd, speed or 1000000 )
+  P.spi_mode( fd, P.SPI_MODE_0 )
+  P.spi_message( fd, P.mcp3008_mkmsg( 0 ) )
+end
+P.mcp3008_init = mcp3008_init
+
 -- A word about "cs, mux" pairs.
 -- CS: A "cs" object (Chip Select) roughly corresponds to a specific
 --      ADC chip on some carrier.  It has links to the SPI channel (with

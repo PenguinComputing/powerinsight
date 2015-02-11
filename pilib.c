@@ -40,6 +40,9 @@ luaL_Reg pi_funcs[] = {
 /*       {"ads8344_init", pi_ads8344_init}, *** Declared in init_final.lua */
          {"ads8344_getmessage", pi_ads8344_getmessage},
          {"ads8344_getraw", pi_ads8344_getraw},
+/*       {"mcp3008_init", pi_mcp3008_init}, *** Declared in init_final.lua */
+         {"mcp3008_mkmsg", pi_mcp3008_mkmsg},
+         {"mcp3008_getraw", pi_mcp3008_getraw},
          {"sc620_init",  pi_sc620_init},
          {"setbank",     pi_setbank},
          {"sens_5v",     pi_sens_5v},
