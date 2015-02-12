@@ -4,6 +4,14 @@
 
 /* pidev library for PowerAPI */
 
+/* Override defaults if no specified on compiler command line with -Dxxx=yyy */
+#ifndef PILIBDIR_DEFAULT
+   #define PILIBDIR_DEFAULT "."
+#endif
+#ifndef PICONFIGFILE_DEFAULT
+   #define PICONFIGFILE_DEFAULT "pidev.conf"
+#endif
+
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
@@ -115,6 +123,7 @@ void pidev_open( )
       luaPI_doerror( L, ret, buffer );
    }
 
+   /* post_conf does an update */
    update_time = time( NULL );
    return ;
 }
@@ -139,10 +148,12 @@ void pidev_read( int portNumber, reading_t *sample )
    if( time(NULL) - update_time > 60 ) {
       size_t  ulen ;
       int  i ;
+
+      /*-- for i = 1, #Update do ... --*/
       lua_getfield( L, LUA_GLOBALSINDEX, "Update" );
       ulen = lua_objlen( L, -1 );
       for( i = 1 ; i <= ulen ; ++i ) {
-         /* Update[i]:update( ) */
+         /*-- Update[i]:update( ) --*/
          lua_pushinteger( L, i );
          lua_gettable( L, -2 );
          lua_getfield( L, -1, "update" );
