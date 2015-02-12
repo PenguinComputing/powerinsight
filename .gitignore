@@ -3,3 +3,5 @@
 *.lc
 *.d
 powerInsight
+pilib.so
+libpidev.so.0
