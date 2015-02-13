@@ -41,12 +41,30 @@ local function ads8344_init ( fd, speed )
 end
 P.ads8344_init = ads8344_init
 
+-- ads1256_init(...) is implemented in pilib_ads1256.c
+
 local function mcp3008_init ( fd, speed )
   P.spi_maxspeed( fd, speed or 1000000 )
   P.spi_mode( fd, P.SPI_MODE_0 )
   P.spi_message( fd, P.mcp3008_mkmsg( 0 ) )
 end
 P.mcp3008_init = mcp3008_init
+
+-- BeagleBone White Analog INputs
+-- For this virtual device, we need to adapt the sysfs files to
+--      a cs/mux pair.  cs will contain:
+--      cs.name[mux] = "path/to/AIN#" files
+--      cs.fd[mux] = filedescriptor open on "name"
+-- NOTE: Effective Vref is .001 * 21.8/11.8 due to value read being
+--      in units of mV and after a voltage divider (10k over 11.8k)
+local function bbwain_init ( cs )
+  if type(cs.fd) ~= "table" then cs.fd = { } end
+  for k, v in ipairs(cs.name) do
+    cs.fd[k] = cs.fd[k] or P.open(v)
+  end
+  cs.vref = 21.8/11800
+end
+P.bbwain_init = bbwain_init
 
 -- A word about "cs, mux" pairs.
 -- CS: A "cs" object (Chip Select) roughly corresponds to a specific
@@ -66,8 +84,6 @@ local function ads8344_read( cs, mux )
 end
 P.ads8344_read = ads8344_read
 
--- ads1256_init(...) is implemented in pilib_ads1256.c
-
 -- NOTE: At the time ads1256_init is called, be sure to save the PGA
 --      setting as cs.scale=1/gain because it's needed here!
 local function ads1256_read( cs, mux )
@@ -80,6 +96,10 @@ local function ads1256_read( cs, mux )
   return P.ads1256_getraw(s.fd, cs.scale)
 end
 P.ads1256_read = ads1256_read
+
+local function mcp3008_read( cs, mux )
+  return P.mcp3008_getraw(P.spi_message(cs.spi.fd, P.mcp3008_mkmsg(mux)))
+end
 
 -- Filter factory for the above XXX_read functions (readfn)
 local function filter_factory( f, readfn )
@@ -141,11 +161,11 @@ i2c_mt = {
 P.i2c_new = i2c_new
 
 -- Sensor transfer functions  ALL EXPORTED
-local function volt_12v ( s ) return P.sens_12v( s.vraw(s.vcs,s.mux) ); end
+local function volt_12v ( s ) return P.sens_12v( s.vraw(s.vcs,s.mux), s.vref ); end
 _G.volt_12v = volt_12v
-local function volt_5v ( s ) return P.sens_5v( s.vraw(s.vcs,s.mux) ); end
+local function volt_5v ( s ) return P.sens_5v( s.vraw(s.vcs,s.mux), s.vref ); end
 _G.volt_5v = volt_5v
-local function volt_3v3 ( s ) return P.sens_3v3( s.vraw(s.vcs,s.mux) ); end
+local function volt_3v3 ( s ) return P.sens_3v3( s.vraw(s.vcs,s.mux), s.vref ); end
 _G.volt_3v3 = volt_3v3
 local function amp_acs713_20 ( s ) return P.sens_acs713_20( s.araw(s.acs,s.mux) );end
 _G.amp_acs713_20 = amp_acs713_20
@@ -355,7 +375,7 @@ local function MainCarrier ( s )
     P.AddSensors( hdr, vccsens, tjmsens )
 
     -- Onboard connectors
-    P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power },
+    P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power, vref=4.096 },
         { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS1A },
         { conn="J3",  mux=2, acs=hdr.CS0A, vcs=hdr.CS1A },
