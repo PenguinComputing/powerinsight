@@ -57,6 +57,9 @@ int pi_AddConnectors(lua_State * L);
 int pi_Sensors(lua_State * L);
 int pi_AddSensors(lua_State * L);
 
+/* List of method names for getting readings */
+extern const char * const  piMethodNames[] ;
+
 #endif /* PILIB_H */
 
 /* ex: set sw=3 sta et : */
