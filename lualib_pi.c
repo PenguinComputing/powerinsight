@@ -43,18 +43,20 @@ int cliverbose( lua_State *L )
 }
 
 /* Lua library loader/open function */
+PIEXPORT(luaopen_pilib)
 int luaopen_pilib( lua_State *L )
 {
    int  ret ;
 
    /* This calls luaL_register */
    pi_register( L );
+   fputs( "luaopen_pilib: loaded ...\n", stderr );
 
    ret = luaL_loadfile( L, "init_final.lua" );
    if( ret != 0 || (ret = lua_pcall( L, 0, 0, 0 )) ) {
       luaPI_doerror( L, ret, "Load/run init_final.lua" );
    } else {
-      fprintf( stderr, "luaopen_pilib: loaded and ran init_final.lua\n" );
+      fputs( "... and ran init_final.lua\n", stderr );
    }
 
    lua_getfield( L, LUA_GLOBALSINDEX, "pi" );
@@ -62,6 +64,10 @@ int luaopen_pilib( lua_State *L )
    lua_setfield( L, -2, "debug" );
    lua_pushcfunction( L, cliverbose );
    lua_setfield( L, -2, "verbose" );
+   fputs( "... and added pi.debug() and pi.verbose() helpers\n", stderr );
+
+   fputs( "... Suggest you:\n    dofile(\"your.conf\")\n    dofile(\"post_conf.lua\")\n", stderr );
+   fflush( stderr );
 
    return 1 ;
 }
