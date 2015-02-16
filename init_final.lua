@@ -180,7 +180,8 @@ Types = { ["12v"] = volt_12v, ["12"] = volt_12v,
           shunt25 = amp_shunt25,
           shunt50 = amp_shunt50,
           typeK = temp_typeK,
-          PTS = temp_PTS
+          PTS = temp_PTS,
+          power = power
         }
 
 -- Configuration support functions
@@ -485,24 +486,8 @@ _G.EXP3Header = P.EXP3Header  -- EXPORT
 
 
 -- For Users .conf files
-_G.Sensors = P.Sensors  -- EXPORT
+_G.Sensors = P.Sensors  -- EXPORT from pilib.c
 
---[[
-local function private()
-  print("in private function")
-end
-
-local function foo()
-  print("Hello World!")
-end
-P.foo = foo
-
-local function bar()
-  private()
-  foo()
-end
-P.bar = bar
-]]--
 
 pi = P -- ie. return P
 end
