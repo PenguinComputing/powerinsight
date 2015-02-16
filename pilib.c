@@ -21,9 +21,13 @@
 #include "pilib.h"
 #include "piglobal.h"
 
-/* List of method call names for sensors. In order of likelyhood */
+/* List of method call names for sensors.
+ * ORDER IS IMPORTANT.  See pilib.h for more details.
+ *      TODO: If you add or remove entries, check the
+ *      rest of the library for changes that might be required
+ */
 const char * const  piMethodNames[] = {
-      "power", "temp", "volt", "amp", "reading", NULL
+      "power", "volt", "amp", "temp", "reading", NULL
    };
 
 luaL_Reg pi_funcs[] = {
