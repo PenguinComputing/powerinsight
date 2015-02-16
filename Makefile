@@ -2,6 +2,8 @@
 CC=gcc
 CDEBUG=-g
 CFLAGS=-MMD $(CDEBUG) -O3 -Wall -fpic -I/usr/include/lua5.1 -I$(PWD)/.
+LDFLAGS=-lc -lm -llua5.1
+AWK=awk
 
 OBJS=pilib.o  pilib_io.o  \
 	pilib_temp.o  pilib_sensor.o  \
@@ -10,18 +12,23 @@ OBJS=pilib.o  pilib_io.o  \
 TGTS=powerInsight  pilib.so  libpidev.so.0  init_final.lc  post_conf.lc
 OTHER=powerInsight.o  libpidev.o  lualib_pi.o
 
+
 all: $(TGTS)
 
 powerInsight: powerInsight.o $(OBJS)
-	$(CC) -o $@ $+ -lm -llua5.1
+	$(CC) -o $@ $+ $(LDFLAGS)
 
 libpidev.so.0: libpidev.o $(OBJS)
-	$(CC) -shared -o $@ $+
+	$(AWK) -F'[()]' '/^PIEXPORT/{print $$2}' $(<:.o=.c) > $(<:.o=.exports)
+	$(CC) -shared -Wl,--unresolved-symbols=ignore-in-shared-libs -Wl,-retain-symbols-file,$(<:.o=.exports) -o $@ $+ $(LDFLAGS)
 
 pilib.so: lualib_pi.o $(OBJS)
-	$(CC) -shared -o $@ $+
+	$(AWK) -F'[()]' '/^PIEXPORT/{print $$2}' $(<:.o=.c) > $(<:.o=.exports)
+	$(CC) -shared -Wl,--unresolved-symbols=ignore-in-shared-libs -Wl,--retain-symbols-file,$(<:.o=.exports) -o $@ $+ $(LDFLAGS)
 
-.PHONY: clean depclean
+
+# Don't look for a target file or generic rule for "all", "clean", etc.
+.PHONY: all clean depclean
 
 clean:
 	$(RM) $(TGTS) $(OBJS) $(OTHER)
