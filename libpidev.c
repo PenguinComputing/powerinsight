@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <math.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -63,8 +64,33 @@ int cliverbose( lua_State *L )
    return 1 ;
 }
 
+/* Helper function for _read and _temp functions */
+int pidev_read_helper( char prefix, int portNumber, reading_t * sample )
+{
+   char  name[8] ;
+   char *  p = name + sizeof(name) -1 ;
+
+   if( sample == NULL ) {
+      return PIERR_NOSAMPLE ;
+   }
+
+   if( portNumber < 1 || portNumber > MAX_PORTNUM ) {
+      return PIERR_NOTFOUND ;
+   }
+
+   *p-- = '\0' ;
+   while( p > name && portNumber ) {
+      *p-- = portNumber % 10 + '0' ;
+      portNumber /= 10 ;
+   }
+   *p = prefix ;
+
+   return pidev_read_byname( p, sample );
+}
+
 /* Open/init the library */
-void pidev_open( )
+PIEXPORT(pidev_open)
+int pidev_open( )
 {
    int  ret ;
 
@@ -72,7 +98,7 @@ void pidev_open( )
    L = luaL_newstate( );
    if( L == NULL ) {
       fprintf( stderr, "%s: Memory allocation error creating Lua instance.\n", ARGV0 );
-      return ;
+      return PIERR_ERROR ;
    }
 
    /* Load initial state */
@@ -125,26 +151,56 @@ void pidev_open( )
 
    /* post_conf does an update */
    update_time = time( NULL );
-   return ;
+   return PIERR_SUCCESS ;
 }
 
-/* Get a power reading
+/* Get a [power] reading by connector number (J##)
  *
- * This assumes that the config file has "named" the sensors with
- *      "1" through "15".  But if an entry isn't found by number,
- *      it will also be looked for by connector name by pre-pending
- *      a "J" (eg. "J1", "J8", "J15")
+ * This depends on the MainCarrier or config file creating names
+ *      "J1" through "J15" (and higher) for each sensor.
+ *      It calls read_byname to do the work and so can read any
+ *      sensor if named appropriately.
  */
-void pidev_read( int portNumber, reading_t *sample )
+PIEXPORT(pidev_read)
+int pidev_read( int portNumber, reading_t * sample )
 {
-   int  len ;
+   return pidev_read_helper( 'J', portNumber, sample );
+}
 
-   if( sample == NULL ) { return ; }
+
+/* Get a temperature reading by connector number (T##)
+ *
+ * This depends on the MainCarrier or config file creating names
+ *      "T1" through "T8" (and higher) for each sensor.
+ *      It calls read_byname to do the work and so can read any
+ *      sensor if named appropriately.
+ */
+PIEXPORT(pidev_temp)
+int pidev_temp( int portNumber, reading_t * sample )
+{
+   return pidev_read_helper( 'T', portNumber, sample );
+}
+
+
+/* Get a reading by name
+ *
+ * This looks up the name, and calls the "power", "volt", "temp", "amp"
+ *      or "reading" method on the sensor.  They are checked in that order
+ *      and whichever is found first is called.
+ */
+PIEXPORT(pidev_read_byname)
+int pidev_read_byname( char * name, reading_t * sample )
+{
+   if( sample == NULL ) { return PIERR_NOSAMPLE ; }
 
    /* Clean the stack */
    lua_settop( L, 0 );
 
    /* Time we updated the global values? */
+   /* TODO: Make the update_time available in Lua and the time interval
+    *           a Lua variable to be set or modified by Lua code.
+    * Evaluate using pi_gettime instead of time()
+    */
    if( time(NULL) - update_time > 60 ) {
       size_t  ulen ;
       int  i ;
@@ -158,58 +214,140 @@ void pidev_read( int portNumber, reading_t *sample )
          lua_gettable( L, -2 );
          lua_getfield( L, -1, "update" );
          lua_pushvalue( L, -2 );
-         lua_pcall( L, 1, 0, 0 );
+         lua_call( L, 1, 0 );
          lua_pop( L, 1 );  /* Clean up Update[i] */
       }
       lua_pop( L, 1 );  /* Clean up Update */
       update_time = time( NULL );
    }
 
-   /* Some globals we need */
+   /* The name index */
    lua_getfield( L, LUA_GLOBALSINDEX, "byName" );
 
-   lua_getfield( L, LUA_GLOBALSINDEX, "power" );
-
-   /* byName[portNumber] */
-   len = snprintf( buffer, sizeof(buffer), "J%d", portNumber );
-   if( len >= sizeof(buffer) ) {
-      buffer[sizeof(buffer)-1] = '\0' ;
+   /* byName[name] */
+   lua_getfield( L, -1, name );
+   if( lua_isnil( L, -1 ) ) {
+      return PIERR_NOTFOUND ;
    }
 
-   lua_getfield( L, -2, buffer +1 );
-   if( lua_isnil( L, -1 ) ) {
-      lua_pop( L, 1 );
-      /* Jxxx */
-      lua_getfield( L, -2, buffer );
-      if( lua_isnil( L, -1 ) ) {
-         return ;
+   /* Look for a method to run */
+
+   /* power */
+   lua_getfield( L, -1, piMethodNames[PIMN_POWER] );
+   if( lua_isfunction( L, -1 ) ) {
+      /* Found method:  p, v, a = s:power( ) */
+      lua_replace( L, -2 );  /* Replace byName in the stack */
+      lua_call( L, 1, 3 );
+
+      if( lua_isnumber( L, -3 ) ) {
+         sample->watt = lua_tonumber( L, -3 );
+      } else {
+         sample->watt = NAN ;
       }
+      if( lua_isnumber( L, -2 ) ) {
+         sample->volt = lua_tonumber( L, -2 );
+      } else {
+         sample->volt = NAN ;
+      }
+      if( lua_isnumber( L, -1 ) ) {
+         sample->amp  = lua_tonumber( L, -1 );
+      } else {
+         sample->amp = NAN ;
+      }
+      goto success ;
    }
-   if( lua_isnil( L, -1 ) ) {
-      /* Can't find byName[portNumber] */
-      return ;
-   }
+   lua_pop( L, 1 ); /* Clean up */
 
-   /* p, v, a = power( s ) */
-   lua_pcall( L, 1, 3, 0 );
+   /* volt */
+   lua_getfield( L, -1, piMethodNames[PIMN_VOLT] );
+   if( lua_isfunction( L, -1 ) ) {
+      /* Found method:  v = s:volt( ) */
+      lua_replace( L, -2 );  /* Replace byName in the stack */
+      lua_call( L, 1, 1 );
 
-   if( lua_isnumber( L, 2 ) ) {
-      sample->miliwatts = lua_tonumber( L, 2 ) * 1000.0 ;
-   }
-   if( lua_isnumber( L, 3 ) ) {
-      sample->milivolts = lua_tonumber( L, 3 ) * 1000.0 ;
-   }
-   if( lua_isnumber( L, 4 ) ) {
-      sample->miliamps  = lua_tonumber( L, 4 ) * 1000.0 ;
-   }
+      if( lua_isnumber( L, -1 ) ) {
+         sample->volt = lua_tonumber( L, -1 );
+      } else {
+         sample->volt = NAN ;
+      }
+      sample->reading = sample->volt ;
+      sample->amp = NAN ;
 
-   return ;
+      goto success ;
+   }
+   lua_pop( L, 1 ); /* Clean up */
+
+   /* amp */
+   lua_getfield( L, -1, piMethodNames[PIMN_AMP] );
+   if( lua_isfunction( L, -1 ) ) {
+      /* Found method:  v = s:amp( ) */
+      lua_replace( L, -2 );  /* Replace byName in the stack */
+      lua_call( L, 1, 1 );
+
+      if( lua_isnumber( L, -1 ) ) {
+         sample->amp = lua_tonumber( L, -1 );
+      } else {
+         sample->amp = NAN ;
+      }
+      sample->reading = sample->amp ;
+      sample->volt = NAN ;
+
+      goto success ;
+   }
+   lua_pop( L, 1 ); /* Clean up */
+
+   /* temp */
+   lua_getfield( L, -1, piMethodNames[PIMN_TEMP] );
+   if( lua_isfunction( L, -1 ) ) {
+      /* Found method:  v = s:temp( ) */
+      lua_replace( L, -2 );  /* Replace byName in the stack */
+      lua_call( L, 1, 1 );
+
+      if( lua_isnumber( L, -1 ) ) {
+         sample->temp = lua_tonumber( L, -1 );
+      } else {
+         sample->temp = NAN ;
+      }
+      sample->volt = sample->amp = NAN ;
+
+      goto success ;
+   }
+   lua_pop( L, 1 ); /* Clean up */
+
+   /* reading */
+   lua_getfield( L, -1, piMethodNames[PIMN_READING] );
+   if( lua_isfunction( L, -1 ) ) {
+      /* Found method:  v = s:reading( ) */
+      lua_replace( L, -2 );  /* Replace byName in the stack */
+      lua_call( L, 1, 1 );
+
+      if( lua_isnumber( L, -1 ) ) {
+         sample->reading = lua_tonumber( L, -1 );
+      } else {
+         sample->reading = NAN ;
+      }
+      sample->volt = sample->amp = NAN ;
+
+      goto success ;
+   }
+   /* lua_pop( L, 1 );  -* Clean up */
+
+   /* No method found */
+   sample->reading = sample->volt = sample->amp = NAN ;
+   return PIERR_NOTFOUND ;
+
+success:
+   return PIERR_SUCCESS ;
 }
 
 /* Close any open files */
-void pidev_close( void )
+PIEXPORT(pidev_close)
+int pidev_close( void )
 {
-   return ;
+   /* FIXME: Not sure what to do here...  How do we shut down
+    *   all the open file descriptors and he Lua instance?
+    */
+   return PIERR_SUCCESS ;
 }
 
 /* ex: set sw=3 sta et : */

@@ -45,6 +45,14 @@ extern unsigned int  debug ;
 #define PIDEBUG_DEFAULT 0
 #endif
 
+/* Macro to declare functions for export when creating a shared library.
+ *
+ * See Makefile for how this gets converted to a list of symbols to
+ *      export for specific targets.  Here, we define it to make the
+ *      directive go away when compiling the .c file...
+ */
+#define PIEXPORT(x)
+
 /* Import the library into a Lua instance */
 int pi_register(lua_State * L);
 

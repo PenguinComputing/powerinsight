@@ -1,24 +1,47 @@
-#ifndef __PIDEV_H__
-#define __PIDEV_H__
-
-/* getRawPower9.2.c    (version 6.2)
- * For use with Carrier Board 10016423 Rev E8 (= Rev A)
+/* Shared library interface to Power Insight v2.1
+ * For use with carrier board 10016423 and 10020355
+ *	and expansion board 10019889 (Temperature)
+ *
+ * NOTE: This is different from a previous version of this
+ *	interface.  The structure is changed and the
+ *	function interfaces have a different signature.
+ *
+ * Copyright (C) Penguin Computing and Sandia National Lab
+ *	2013, 2014, 2015
  */
+#ifndef PIDEV_H
+#define PIDEV_H
 
-#include <stdint.h>
+#define MAX_PORTNUM  60
 
-#define MAX_PORTNUM      15
+typedef struct {
+    union { double  reading, watt, temp ; };
+    double  volt ;  /* Voltage component of Watt measurement */
+    double  amp ;  /* Amperage component */
+} reading_t ;
 
-typedef struct reading {
-    uint16_t    Asamp;          // Raw sample
-    uint16_t    Vsamp;          // Raw sample
-    int32_t     miliamps;       // Calculated value
-    int32_t     milivolts;      // Calculated value
-    int32_t     miliwatts;      // Calculated value
-} reading_t;
+/* Call to initialize the library, MUST be called before read, etc. */
+int pidev_open( void );
 
-void pidev_open(void);
-void pidev_read(int portNumber, reading_t *sample);
-void pidev_close(void);
+/* Read a sensor named "J#" where # is the portNumber */
+int pidev_read( int portNumber, reading_t * sample );
 
+/* Read a sensor named "T#" where # is the portNumber */
+int pidev_temp( int portNumber, reading_t * sample );
+
+/* Read a sensor by name */
+int pidev_read_byname( char * name, reading_t * sample );
+
+/* Close the library */
+int pidev_close( void );
+
+/* The above functions return 0 on success and one of the following
+ *      on failure
+ */
+#define PIERR_SUCCESS  0
+#define PIERR_NOSAMPLE  -1
+#define PIERR_NOTFOUND  -2
+#define PIERR_ERROR  -3
+
+/* ex: set sw=4 sta et : */
 #endif

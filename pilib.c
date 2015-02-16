@@ -21,6 +21,15 @@
 #include "pilib.h"
 #include "piglobal.h"
 
+/* List of method call names for sensors.
+ * ORDER IS IMPORTANT.  See pilib.h for more details.
+ *      TODO: If you add or remove entries, check the
+ *      rest of the library for changes that might be required
+ */
+const char * const  piMethodNames[] = {
+      "power", "volt", "amp", "temp", "reading", NULL
+   };
+
 luaL_Reg pi_funcs[] = {
          {"open",        pi_open},
          {"spi_mode",    pi_spi_mode},
@@ -115,16 +124,18 @@ int pi_register( lua_State *L )
    lua_pushinteger( L, verbose );
    lua_setfield( L, -2, "verbose" );
    /* FIXME: Include debug when Lua gets usable bitwise operators */
+   /* FIXME: Also, need get/set methods for verbose and debug */
 
    /* Other constants?
    lua_pushlightuserdata( L, (void *)XXX );
    lua_setfield( L, -2, "XXX" );
     */
 
-   /* FIXME: BE CAREFUL. This probably belongs in "init_final.lua"
-    *    which must run immediately after pi_register()
+   /* CAREFUL ...
     *    Only put things here which are required to finalize
-    *    pi_register and more easily done in Lua than in C
+    *    pi_register, done more easily in Lua than in C, and
+    *    not more easily done in init_final.lua which will
+    *    run immediately after this.
     */
    /* dostring "init" for initialization from lua */
    ret = luaL_loadstring(L,
@@ -546,8 +557,6 @@ int pi_Sensors(lua_State * L)
  * -----
  * @count -- Number of objects processed
  */
-static const char * const  TypeFields[] = { "temp", "volt", "amp" };
-#define TFLEN (sizeof(TypeFields)/sizeof(*TypeFields))
 int pi_AddSensors(lua_State * L)
 {
    int  nargs = lua_gettop( L );
@@ -558,7 +567,7 @@ int pi_AddSensors(lua_State * L)
    int  gSlen ;  /* Current objlen of S */
    int  gbyName ;  /* global byName */
    int  gTypes ;  /* global Types */
-   const char * const *  tf ;
+   const char * const *  mn ;  /* piMethodNames pointer */
    int  idx ;
 
 
@@ -633,8 +642,8 @@ int pi_AddSensors(lua_State * L)
       lua_settable( L, gbyName );  /* Index by conn in byName, use last copy */
 
       /* Foreach "temp", "volt", "amp" */
-      for( tf = TypeFields ; tf - TypeFields < TFLEN ; ++tf ) {
-         lua_getfield( L, idx, *tf );
+      for( mn = piMethodNames ; *mn != NULL ; ++mn ) {
+         lua_getfield( L, idx, *mn );
          /* Check value for string or function */
          if( lua_isstring( L, -1 ) ) {
             lua_tostring( L, -1 );  /* Force to string */
@@ -642,13 +651,13 @@ int pi_AddSensors(lua_State * L)
             lua_gettable( L, gTypes );  /* Replaces TOS */
             if( lua_isnil( L, -1 ) ) {
                /* Unrecognized Type */
-               return luaL_error( L, "bad argument #%d to AddSensors (%s is unrecognized type)", idx, *tf );
+               return luaL_error( L, "bad argument #%d to AddSensors (%s is unrecognized type)", idx, *mn );
             }
             /* Replace value in table */
-            lua_setfield( L, idx, *tf );  /* Cleans stack */
+            lua_setfield( L, idx, *mn );  /* Cleans stack */
          } else if( ! lua_isnil( L, -1 ) && ! lua_isfunction( L, -1 ) ) {
             /* It exists, but is not usable */
-            return luaL_error( L, "bad argument #%d to AddSensors (%s is invalid value)", idx, *tf );
+            return luaL_error( L, "bad argument #%d to AddSensors (%s is invalid value)", idx, *mn );
          } else {
             lua_pop( L, 1 );  /* Clean up getfield */
          }
