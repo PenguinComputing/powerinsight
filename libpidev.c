@@ -191,8 +191,6 @@ int pidev_temp( int portNumber, reading_t * sample )
 PIEXPORT(pidev_read_byname)
 int pidev_read_byname( char * name, reading_t * sample )
 {
-   const char * const * mn ;
-
    if( sample == NULL ) { return PIERR_NOSAMPLE ; }
 
    /* Clean the stack */
@@ -216,7 +214,7 @@ int pidev_read_byname( char * name, reading_t * sample )
          lua_gettable( L, -2 );
          lua_getfield( L, -1, "update" );
          lua_pushvalue( L, -2 );
-         lua_call( L, 1, 0, 0 );
+         lua_call( L, 1, 0 );
          lua_pop( L, 1 );  /* Clean up Update[i] */
       }
       lua_pop( L, 1 );  /* Clean up Update */
@@ -239,7 +237,7 @@ int pidev_read_byname( char * name, reading_t * sample )
    if( lua_isfunction( L, -1 ) ) {
       /* Found method:  p, v, a = s:power( ) */
       lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 3, 0 );
+      lua_call( L, 1, 3 );
 
       if( lua_isnumber( L, -3 ) ) {
          sample->watt = lua_tonumber( L, -3 );
@@ -265,7 +263,7 @@ int pidev_read_byname( char * name, reading_t * sample )
    if( lua_isfunction( L, -1 ) ) {
       /* Found method:  v = s:volt( ) */
       lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1, 0 );
+      lua_call( L, 1, 1 );
 
       if( lua_isnumber( L, -1 ) ) {
          sample->volt = lua_tonumber( L, -1 );
@@ -284,7 +282,7 @@ int pidev_read_byname( char * name, reading_t * sample )
    if( lua_isfunction( L, -1 ) ) {
       /* Found method:  v = s:amp( ) */
       lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1, 0 );
+      lua_call( L, 1, 1 );
 
       if( lua_isnumber( L, -1 ) ) {
          sample->amp = lua_tonumber( L, -1 );
@@ -303,7 +301,7 @@ int pidev_read_byname( char * name, reading_t * sample )
    if( lua_isfunction( L, -1 ) ) {
       /* Found method:  v = s:temp( ) */
       lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1, 0 );
+      lua_call( L, 1, 1 );
 
       if( lua_isnumber( L, -1 ) ) {
          sample->temp = lua_tonumber( L, -1 );
@@ -321,7 +319,7 @@ int pidev_read_byname( char * name, reading_t * sample )
    if( lua_isfunction( L, -1 ) ) {
       /* Found method:  v = s:reading( ) */
       lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1, 0 );
+      lua_call( L, 1, 1 );
 
       if( lua_isnumber( L, -1 ) ) {
          sample->reading = lua_tonumber( L, -1 );
@@ -332,7 +330,7 @@ int pidev_read_byname( char * name, reading_t * sample )
 
       goto success ;
    }
-   /* lua_pop( L, 1 ); /* Clean up */
+   /* lua_pop( L, 1 );  -* Clean up */
 
    /* No method found */
    sample->reading = sample->volt = sample->amp = NAN ;
