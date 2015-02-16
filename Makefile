@@ -10,7 +10,8 @@ OBJS=pilib.o  pilib_io.o  \
 	pilib_spi.o  pilib_i2c.o  \
 	pilib_ads1256.o  pilib_ads8344.o  pilib_mcp3008.o
 TGTS=powerInsight  pilib.so  libpidev.so.0  init_final.lc  post_conf.lc
-OTHER=powerInsight.o  libpidev.o  lualib_pi.o
+OTHER=powerInsight.o  libpidev.o  libpidev.exports \
+	lualib_pi.o lualib_pi.exports
 
 
 all: $(TGTS)
