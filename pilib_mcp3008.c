@@ -139,7 +139,7 @@ int pi_mcp3008_getraw(lua_State * L)
       /* Determine the shift (count leading zeros */
       lua_getfield( L, arg, "tx_buf" );
       tx_buf = (const __u8 *) lua_tolstring( L, -1, &len );
-      if( tx_buf == NULL || len != 4 ) {
+      if( tx_buf == NULL || len != 3 ) {
          return luaL_argerror( L, arg, "tx_buf missing or invalid" );
       }
       control = *tx_buf ;
