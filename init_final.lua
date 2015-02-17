@@ -54,15 +54,17 @@ P.mcp3008_init = mcp3008_init
 -- For this virtual device, we need to adapt the sysfs files to
 --      a cs/mux pair.  cs will contain:
 --      cs.name[mux] = "path/to/AIN#" files
---      cs.fd[mux] = filedescriptor open on "name"
+--      cs.file[mux] = lua file open on "name"
+-- NOTE: name[] and file[] are index from 0 to be compatible with
+--      mux values for the mcp3008
 -- NOTE: Effective Vref is .001 * 21.8/11.8 due to value read being
 --      in units of mV and after a voltage divider (10k over 11.8k)
 local function bbwain_init ( cs )
-  if type(cs.fd) ~= "table" then cs.fd = { } end
-  for k, v in ipairs(cs.name) do
-    cs.fd[k] = cs.fd[k] or P.open(v)
+  if type(cs.file) ~= "table" then cs.file = { } end
+  for k = 0, #(cs.name) do
+    cs.file[k] = cs.file[k] or io.open(cs.name[k])
   end
-  cs.vref = 21.8/11800
+  cs.vref = 218.0/118000
 end
 P.bbwain_init = bbwain_init
 
@@ -99,6 +101,12 @@ P.ads1256_read = ads1256_read
 
 local function mcp3008_read( cs, mux )
   return P.mcp3008_getraw(P.spi_message(cs.spi.fd, P.mcp3008_mkmsg(mux)))
+end
+
+local function bbwain_read( cs, mux )
+  local f = cs.file[mux]
+  f:seek("set")
+  return f:read("*n")
 end
 
 -- Filter factory for the above XXX_read functions (readfn)
@@ -395,10 +403,94 @@ local function MainCarrier ( s )
       )
 
 
-  elseif tostring(pn) == "100xxxxx" then
+  elseif tostring(pn) == "10016423" then
     -- PowerInsight v1.0
-    -- SPI ports
+    -- SPI hardware
+    local spi1_0 = spi_new{ -- Voltage J1-J8
+        name="/dev/spidev1.0",
+        }
+    M.spi1_0 = spi1_0
+
+    local spi2_0 = spi_new{ -- Current J1-J8
+        name="/dev/spidev2.0",
+        }
+    M.spi2_0 = spi2_0
+
+    local spi2_1 = spi_new{ -- Current J9-J15, Vcc
+        name="/dev/spidev2.1",
+        }
+    M.spi2_1 = spi2_1
+
+    -- I2C hardware   by HARDWARE name, NOT Linux...
+    local i2c_0 = i2c_new{ -- on-bone devices
+        name="/dev/i2c-0",
+        }
+    M.i2c_0 = i2c_0
+
+    local i2c_1 = i2c_new{ -- cape eeprom bus
+        name="/dev/i2c-1", -- NOTE: SoC calls this i2c-2
+        }
+    M.i2c_1 = i2c_1
+
+    local i2c_2 = i2c_new{ -- on-carrier devices
+        name="/dev/i2c-2", -- NOTE: SoC calls this i2c-1
+        }
+    M.i2c_2 = i2c_2
+
     -- Analog input ports
+    -- FIXME: Look up the pathnames dynamically to resolve .3 and .10
+    --          to current platform values.
+    local bbwain = { [0] = "/sys/devices/ocp.3/helper.10/AIN0",
+        "/sys/devices/ocp.3/helper.10/AIN1",
+        "/sys/devices/ocp.3/helper.10/AIN2",
+        "/sys/devices/ocp.3/helper.10/AIN3",
+        "/sys/devices/ocp.3/helper.10/AIN4",
+        "/sys/devices/ocp.3/helper.10/AIN5",
+        "/sys/devices/ocp.3/helper.10/AIN6"
+        }
+
+    -- Onboard Power
+    local OBD =  { CS0A={ spi=spi2_0 }, CS0V={ spi=spi1_0 },
+                   CS1A={ spi=spi2_1 }, CS1V={ name=bbwain },
+                   name="OBD", prefix=""
+                }
+    M.OBD = OBD
+
+    -- Initialize the ADC on this carrier
+    mcp3008_init( spi2_0.fd ) ; mcp3008_init( spi1_0.fd )
+    mcp3008_init( spi2_1.fd ) ; bbwain_init( CSJ9_15V )
+
+    -- Onboard sensors
+    local vccsens = {
+        conn="Vcc",
+        vcs=OBD.CS1A, mux=7, vraw=cache_read,
+        update=function ( s ) s.vcs[s.mux]=mcp3008_read(s.vcs,s.mux) end,
+        volt=function ( s ) return 4.096/s.vcs[s.mux] end
+      }
+    P.AddSensors( OBD, vccsens )
+
+    -- Onboard connectors
+    P.AddConnectors( OBD, { araw=mcp3008_read, vraw=mcp3008_read, vcc=vccsens, power=power, vref=4.096 },
+        { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J3",  mux=2, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J4",  mux=3, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J5",  mux=4, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J6",  mux=5, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J7",  mux=6, acs=hdr.CS0A, vcs=hdr.CS0V },
+        { conn="J8",  mux=7, acs=hdr.CS0A, vcs=hdr.CS0V }
+      )
+    P.AddConnectors( OBD, { araw=mcp3008_read, vraw=bbwain_read, vcc=vccsens, power=power, vref=218.0/118000 },
+        { conn="J9",  mux=0, acs=hdr.CS1A, vcs=hdr.CS1V },
+        { conn="J10", mux=1, acs=hdr.CS1A, vcs=hdr.CS1V },
+        { conn="J11", mux=2, acs=hdr.CS1A, vcs=hdr.CS1V },
+        { conn="J12", mux=3, acs=hdr.CS1A, vcs=hdr.CS1V },
+        { conn="J13", mux=4, acs=hdr.CS1A, vcs=hdr.CS1V },
+        { conn="J14", mux=5, acs=hdr.CS1A, vcs=hdr.CS1V },
+        { conn="J15", mux=6, acs=hdr.CS1A, vcs=hdr.CS1V }
+      )
+
+
   else
     error( "Unrecognized MainCarrier part number: "..tostring(pn), 2 )
     os.exit(1)
