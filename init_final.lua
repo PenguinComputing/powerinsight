@@ -267,7 +267,7 @@ local function MainCarrier ( s )
   if pn then M.PN = pn else pn = M.PN end
 
   -- Check for known MainCarrier parts
-  if tostring(pn) == "10020355" then
+  if tostring(pn) == "10020335" then
     -- PowerInsight v2.1
     -- Bank select hardware
     local spi1_bank = bank_new{
@@ -404,8 +404,8 @@ local function MainCarrier ( s )
       )
 
 
-  elseif tostring(pn) == "10016423" then
-    -- PowerInsight v1.0
+  elseif tostring(pn) == "10016424" then
+    -- PowerInsight v1.0, 15-channel configuration
     -- SPI hardware
     local spi1_0 = spi_new{ -- Voltage J1-J8
         name="/dev/spidev1.0",
@@ -462,7 +462,7 @@ local function MainCarrier ( s )
     local bbwain_vref = (1.800*218)/(4096*118)
 
     -- Onboard Power
-    local OBD =  { CS0A={ spi=spi2_0 }, CS0V={ spi=spi1_0 },
+    local OBD =  { CS0A={ spi=spi1_0 }, CS0V={ spi=spi2_0 },
                    CS1A={ spi=spi2_1 }, CS1V={ name=bbwain },
                    name="OBD", prefix=""
                 }
