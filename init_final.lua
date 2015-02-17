@@ -57,14 +57,11 @@ P.mcp3008_init = mcp3008_init
 --      cs.file[mux] = lua file open on "name"
 -- NOTE: name[] and file[] are index from 0 to be compatible with
 --      mux values for the mcp3008
--- NOTE: Effective Vref is .001 * 21.8/11.8 due to value read being
---      in units of mV and after a voltage divider (10k over 11.8k)
 local function bbwain_init ( cs )
   if type(cs.file) ~= "table" then cs.file = { } end
   for k = 0, #(cs.name) do
     cs.file[k] = cs.file[k] or io.open(cs.name[k])
   end
-  cs.vref = 218.0/118000
 end
 P.bbwain_init = bbwain_init
 
@@ -114,6 +111,11 @@ local function filter_factory( f, readfn )
   return function (cs, mux) cs[mux]=P.filter(cs[mux],f,readfn(cs,mux)) ; return cs[mux] end
 end
 P.filter_factory = filter_factory
+
+local function cache_factory( f, readfn )
+  return function (cs, mux) cs[mux]=readfn(cs,mux) ; return cs[mux] end
+end
+P.cache_factory = cache_factory
 
 -- Read the cache (either filtered or update when requested
 local function cache_read( cs, mux ) return cs[mux] end
@@ -368,7 +370,6 @@ local function MainCarrier ( s )
     spi2_0.bank:set(1) ; ads8344_init( spi2_0.fd ) ; ads8344_init( spi2_1.fd )
 
     -- Onboard sensors
-    local hdr = OBD
     local vccsens = {
         conn="Vcc",
         vcs=OBD.CS0B, mux=7, vraw=cache_read,
@@ -381,25 +382,25 @@ local function MainCarrier ( s )
         traw=filter_factory(0.7, ads8344_read),
         temp=temp_PTS, pullup=10
       }
-    P.AddSensors( hdr, vccsens, tjmsens )
+    P.AddSensors( OBD, vccsens, tjmsens )
 
     -- Onboard connectors
-    P.AddConnectors( hdr, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power, vref=4.096 },
-        { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J3",  mux=2, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J4",  mux=3, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J5",  mux=4, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J6",  mux=5, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J7",  mux=6, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J8",  mux=7, acs=hdr.CS0A, vcs=hdr.CS1A },
-        { conn="J9",  mux=0, acs=hdr.CS0B, vcs=hdr.CS1B },
-        { conn="J10", mux=1, acs=hdr.CS0B, vcs=hdr.CS1B },
-        { conn="J11", mux=2, acs=hdr.CS0B, vcs=hdr.CS1B },
-        { conn="J12", mux=3, acs=hdr.CS0B, vcs=hdr.CS1B },
-        { conn="J13", mux=4, acs=hdr.CS0B, vcs=hdr.CS1B },
-        { conn="J14", mux=5, acs=hdr.CS0B, vcs=hdr.CS1B },
-        { conn="J15", mux=6, acs=hdr.CS0B, vcs=hdr.CS1B }
+    P.AddConnectors( OBD, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power, vref=4.096 },
+        { conn="J1",  mux=0, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J2",  mux=1, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J3",  mux=2, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J4",  mux=3, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J5",  mux=4, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J6",  mux=5, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J7",  mux=6, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J8",  mux=7, acs=OBD.CS0A, vcs=OBD.CS1A },
+        { conn="J9",  mux=0, acs=OBD.CS0B, vcs=OBD.CS1B },
+        { conn="J10", mux=1, acs=OBD.CS0B, vcs=OBD.CS1B },
+        { conn="J11", mux=2, acs=OBD.CS0B, vcs=OBD.CS1B },
+        { conn="J12", mux=3, acs=OBD.CS0B, vcs=OBD.CS1B },
+        { conn="J13", mux=4, acs=OBD.CS0B, vcs=OBD.CS1B },
+        { conn="J14", mux=5, acs=OBD.CS0B, vcs=OBD.CS1B },
+        { conn="J15", mux=6, acs=OBD.CS0B, vcs=OBD.CS1B }
       )
 
 
@@ -438,16 +439,27 @@ local function MainCarrier ( s )
     M.i2c_2 = i2c_2
 
     -- Analog input ports
-    -- FIXME: Look up the pathnames dynamically to resolve .3 and .10
-    --          to current platform values.
-    local bbwain = { [0] = "/sys/devices/ocp.3/helper.10/AIN0",
-        "/sys/devices/ocp.3/helper.10/AIN1",
-        "/sys/devices/ocp.3/helper.10/AIN2",
-        "/sys/devices/ocp.3/helper.10/AIN3",
-        "/sys/devices/ocp.3/helper.10/AIN4",
-        "/sys/devices/ocp.3/helper.10/AIN5",
-        "/sys/devices/ocp.3/helper.10/AIN6"
+    -- Two paths to these sensors:
+    --   /sys/devices/ocp.3/helper.10/AIN#
+    --          * The .10 is dynamic
+    --          * Values are in mV
+    --          * Only 10.8 effective bits (0-1800)
+    --   /sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage#_raw
+    --          * Values are counts for 12-bit ADC (0-4095)
+    --          * Vref = 1.8V
+    -- NOTE: Effective Vref is 1.800/4096 * 21.8/11.8 due to values being
+    --      12-bit counts with 1.8V reference and after a 10k over 11.8k
+    --      voltage divider
+    local bbwain = {
+    [0]="/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage0_raw",
+        "/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage1_raw",
+        "/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage2_raw",
+        "/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage3_raw",
+        "/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage4_raw",
+        "/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage5_raw",
+        "/sys/devices/ocp.3/44e0d000.tscadc/tiadc/iio:device0/in_voltage6_raw",
         }
+    local bbwain_vref = (1.800*218)/(4096*118)
 
     -- Onboard Power
     local OBD =  { CS0A={ spi=spi2_0 }, CS0V={ spi=spi1_0 },
@@ -458,7 +470,7 @@ local function MainCarrier ( s )
 
     -- Initialize the ADC on this carrier
     mcp3008_init( spi2_0.fd ) ; mcp3008_init( spi1_0.fd )
-    mcp3008_init( spi2_1.fd ) ; bbwain_init( CSJ9_15V )
+    mcp3008_init( spi2_1.fd ) ; bbwain_init( OBD.CS1V )
 
     -- Onboard sensors
     local vccsens = {
@@ -471,23 +483,23 @@ local function MainCarrier ( s )
 
     -- Onboard connectors
     P.AddConnectors( OBD, { araw=mcp3008_read, vraw=mcp3008_read, vcc=vccsens, power=power, vref=4.096 },
-        { conn="J1",  mux=0, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J2",  mux=1, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J3",  mux=2, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J4",  mux=3, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J5",  mux=4, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J6",  mux=5, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J7",  mux=6, acs=hdr.CS0A, vcs=hdr.CS0V },
-        { conn="J8",  mux=7, acs=hdr.CS0A, vcs=hdr.CS0V }
+        { conn="J1",  mux=0, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J2",  mux=1, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J3",  mux=2, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J4",  mux=3, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J5",  mux=4, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J6",  mux=5, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J7",  mux=6, acs=OBD.CS0A, vcs=OBD.CS0V },
+        { conn="J8",  mux=7, acs=OBD.CS0A, vcs=OBD.CS0V }
       )
-    P.AddConnectors( OBD, { araw=mcp3008_read, vraw=bbwain_read, vcc=vccsens, power=power, vref=218.0/118000 },
-        { conn="J9",  mux=0, acs=hdr.CS1A, vcs=hdr.CS1V },
-        { conn="J10", mux=1, acs=hdr.CS1A, vcs=hdr.CS1V },
-        { conn="J11", mux=2, acs=hdr.CS1A, vcs=hdr.CS1V },
-        { conn="J12", mux=3, acs=hdr.CS1A, vcs=hdr.CS1V },
-        { conn="J13", mux=4, acs=hdr.CS1A, vcs=hdr.CS1V },
-        { conn="J14", mux=5, acs=hdr.CS1A, vcs=hdr.CS1V },
-        { conn="J15", mux=6, acs=hdr.CS1A, vcs=hdr.CS1V }
+    P.AddConnectors( OBD, { araw=mcp3008_read, vraw=bbwain_read, vcc=vccsens, power=power, vref=bbwain_vref },
+        { conn="J9",  mux=0, acs=OBD.CS1A, vcs=OBD.CS1V },
+        { conn="J10", mux=1, acs=OBD.CS1A, vcs=OBD.CS1V },
+        { conn="J11", mux=2, acs=OBD.CS1A, vcs=OBD.CS1V },
+        { conn="J12", mux=3, acs=OBD.CS1A, vcs=OBD.CS1V },
+        { conn="J13", mux=4, acs=OBD.CS1A, vcs=OBD.CS1V },
+        { conn="J14", mux=5, acs=OBD.CS1A, vcs=OBD.CS1V },
+        { conn="J15", mux=6, acs=OBD.CS1A, vcs=OBD.CS1V }
       )
 
 
