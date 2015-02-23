@@ -1,9 +1,5 @@
 -- Post .conf file configuration
 --
-
--- Global
-Update = { } -- List of "update" sensors
-
 -- Finalize the system configuration
 do
 
@@ -13,9 +9,9 @@ do
   for k, s in ipairs( S ) do
     if s.update ~= nil then
       table.insert(Update,s)
-      s:update( )
     end
   end
+  pi.doUpdate( )
 
 -- Default App function
   local function defaultApp (...)

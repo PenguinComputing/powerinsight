@@ -18,29 +18,6 @@ char *  configfile = PICONFIGFILE_DEFAULT ;
 unsigned int  debug = PIDEBUG_DEFAULT ;
 int  verbose = PIVERBOSE_DEFAULT ;
 
-int clidebug( lua_State *L )
-{
-   if( lua_isnumber( L, 1 ) ) {
-      debug = lua_tointeger( L, 1 );
-   } else {
-      lua_pushnumber( L, debug );
-   }
-
-   /* return new value, or current value */
-   return 1 ;
-}
-
-int cliverbose( lua_State *L )
-{
-   if( lua_isnumber( L, 1 ) ) {
-      verbose = lua_tointeger( L, 1 );
-   } else {
-      lua_pushnumber( L, verbose );
-   }
-
-   /* return new value, or current value */
-   return 1 ;
-}
 
 /* Lua library loader/open function */
 PIEXPORT(luaopen_pilib)
@@ -59,14 +36,10 @@ int luaopen_pilib( lua_State *L )
       fputs( "... and ran init_final.lua\n", stderr );
    }
 
-   lua_getfield( L, LUA_GLOBALSINDEX, "pi" );
-   lua_pushcfunction( L, clidebug );
-   lua_setfield( L, -2, "debug" );
-   lua_pushcfunction( L, cliverbose );
-   lua_setfield( L, -2, "verbose" );
-   fputs( "... and added pi.debug() and pi.verbose() helpers\n", stderr );
-
-   fputs( "... Suggest you:\n    dofile(\"your.conf\")\n    dofile(\"post_conf.lua\")\n", stderr );
+   fputs( "... Suggest you:\n"
+          "    dofile(\"your.conf\")\n"
+          "    dofile(\"post_conf.lua\")\n",
+      stderr );
    fflush( stderr );
 
    return 1 ;

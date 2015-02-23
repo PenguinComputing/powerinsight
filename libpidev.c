@@ -13,7 +13,6 @@
 #endif
 
 #include <stdio.h>
-#include <time.h>
 #include <string.h>
 #include <math.h>
 #include <lua.h>
@@ -36,33 +35,6 @@ static char  buffer[1024];
 /* The Lua instance */
 static lua_State *  L = NULL ;
 
-/* Time of last update */
-static time_t  update_time ;
-
-/* Functions to allow get/set of debug and verbose */
-int clidebug( lua_State *L )
-{
-   if( lua_isnumber( L, 1 ) ) {
-      debug = lua_tointeger( L, 1 );
-   } else {
-      lua_pushnumber( L, debug );
-   }
-
-   /* return new value, or current value */
-   return 1 ;
-}
-
-int cliverbose( lua_State *L )
-{
-   if( lua_isnumber( L, 1 ) ) {
-      verbose = lua_tointeger( L, 1 );
-   } else {
-      lua_pushnumber( L, verbose );
-   }
-
-   /* return new value, or current value */
-   return 1 ;
-}
 
 /* Helper function for _read and _temp functions */
 int pidev_read_helper( char prefix, int portNumber, reading_t * sample )
@@ -118,14 +90,6 @@ int pidev_open( )
       luaPI_doerror( L, ret, buffer );
    }
 
-   /* Add additional functions */
-   lua_getfield( L, LUA_GLOBALSINDEX, "pi" );
-   lua_pushcfunction( L, clidebug );
-   lua_setfield( L, -2, "debug" );
-   lua_pushcfunction( L, cliverbose );
-   lua_setfield( L, -2, "verbose" );
-   lua_pop( L, 1 );
-
    /* Now read the config file */
    ret = luaL_loadfile( L, configfile );
    if( ret != 0 || (ret = lua_pcall( L, 0, LUA_MULTRET, 0 )) ) {
@@ -149,8 +113,6 @@ int pidev_open( )
       luaPI_doerror( L, ret, buffer );
    }
 
-   /* post_conf does an update */
-   update_time = time( NULL );
    return PIERR_SUCCESS ;
 }
 
@@ -196,30 +158,11 @@ int pidev_read_byname( char * name, reading_t * sample )
    /* Clean the stack */
    lua_settop( L, 0 );
 
-   /* Time we updated the global values? */
-   /* TODO: Make the update_time available in Lua and the time interval
-    *           a Lua variable to be set or modified by Lua code.
-    * Evaluate using pi_gettime instead of time()
-    */
-   if( time(NULL) - update_time > 60 ) {
-      size_t  ulen ;
-      int  i ;
-
-      /*-- for i = 1, #Update do ... --*/
-      lua_getfield( L, LUA_GLOBALSINDEX, "Update" );
-      ulen = lua_objlen( L, -1 );
-      for( i = 1 ; i <= ulen ; ++i ) {
-         /*-- Update[i]:update( ) --*/
-         lua_pushinteger( L, i );
-         lua_gettable( L, -2 );
-         lua_getfield( L, -1, "update" );
-         lua_pushvalue( L, -2 );
-         lua_call( L, 1, 0 );
-         lua_pop( L, 1 );  /* Clean up Update[i] */
-      }
-      lua_pop( L, 1 );  /* Clean up Update */
-      update_time = time( NULL );
-   }
+   /* pi.tryUpdate( )  globals */
+   lua_getfield( L, LUA_GLOBALSINDEX, "pi" );
+   lua_getfield( L, -1, "tryUpdate" );
+   lua_call( L, 0, 0 );
+   lua_pop( L, 1 );
 
    /* The name index */
    lua_getfield( L, LUA_GLOBALSINDEX, "byName" );

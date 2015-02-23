@@ -2,6 +2,7 @@
 
 -- Globals
 S = { } -- Sensors (both Temp and Power (Volt+Amp)
+Update = { } -- List of sensors with update() methods
 byName = { } -- Index of conn and name fields to sensor objects
 Types = { } -- Mapping strings to sensor functions
 -- MANY more exported below.  see _G.xxx = xxx
@@ -241,10 +242,10 @@ Types = { ["12v"] = volt_12v, ["12"] = volt_12v,
 --      in the list.  If a matching connector does
 --      not already exist, an error is thrown
 --
--- AddSensors() does the same, but only if a matching connector
+-- addSensors() does the same, but only if a matching connector
 --      does NOT already exist (creating a new connector/sensor)
 --
--- AddConnectors() creates connectors in the table (partial sensor
+-- addConnectors() creates connectors in the table (partial sensor
 --      objects) with the connector names, chip select info and
 --      bank settings for each.  An __index metatable is also
 --      set for each object to reduce duplicate entries.
@@ -382,10 +383,10 @@ local function MainCarrier ( s )
         traw=filter_factory(0.7, ads8344_read),
         temp=temp_PTS, pullup=10
       }
-    P.AddSensors( OBD, vccsens, tjmsens )
+    P.addSensors( OBD, vccsens, tjmsens )
 
     -- Onboard connectors
-    P.AddConnectors( OBD, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power, vref=4.096 },
+    P.addConnectors( OBD, { araw=ads8344_read, vraw=ads8344_read, vcc=vccsens, power=power, vref=4.096 },
         { conn="J1",  mux=0, acs=OBD.CS0A, vcs=OBD.CS1A },
         { conn="J2",  mux=1, acs=OBD.CS0A, vcs=OBD.CS1A },
         { conn="J3",  mux=2, acs=OBD.CS0A, vcs=OBD.CS1A },
@@ -479,10 +480,10 @@ local function MainCarrier ( s )
         update=function ( s ) s.vcs[s.mux]=mcp3008_read(s.vcs,s.mux) end,
         volt=function ( s ) return 4.096/s.vcs[s.mux] end
       }
-    P.AddSensors( OBD, vccsens )
+    P.addSensors( OBD, vccsens )
 
     -- Onboard connectors
-    P.AddConnectors( OBD, { araw=mcp3008_read, vraw=mcp3008_read, vcc=vccsens, power=power, vref=4.096 },
+    P.addConnectors( OBD, { araw=mcp3008_read, vraw=mcp3008_read, vcc=vccsens, power=power, vref=4.096 },
         { conn="J1",  mux=0, acs=OBD.CS0A, vcs=OBD.CS0V },
         { conn="J2",  mux=1, acs=OBD.CS0A, vcs=OBD.CS0V },
         { conn="J3",  mux=2, acs=OBD.CS0A, vcs=OBD.CS0V },
@@ -492,7 +493,7 @@ local function MainCarrier ( s )
         { conn="J7",  mux=6, acs=OBD.CS0A, vcs=OBD.CS0V },
         { conn="J8",  mux=7, acs=OBD.CS0A, vcs=OBD.CS0V }
       )
-    P.AddConnectors( OBD, { araw=mcp3008_read, vraw=bbwain_read, vcc=vccsens, power=power, vref=bbwain_vref },
+    P.addConnectors( OBD, { araw=mcp3008_read, vraw=bbwain_read, vcc=vccsens, power=power, vref=bbwain_vref },
         { conn="J9",  mux=0, acs=OBD.CS1A, vcs=OBD.CS1V },
         { conn="J10", mux=1, acs=OBD.CS1A, vcs=OBD.CS1V },
         { conn="J11", mux=2, acs=OBD.CS1A, vcs=OBD.CS1V },
@@ -511,7 +512,7 @@ end
 P.MainCarrier = MainCarrier
 _G.MainCarrier = MainCarrier -- EXPORT
 
-local function SetHeader( hdr, PN )
+local function setHeader( hdr, PN )
   if hdr == nil or hdr.name == nil then
     error( "Header does not exist", 2 )
     os.exit(1)
@@ -571,10 +572,10 @@ local function SetHeader( hdr, PN )
         temp=function( s ) return P.rt2temp_PTS(s.tcs[s.mux],27) end,
         pullup=27
       }
-    P.AddSensors( hdr, tja, tjb )
+    P.addSensors( hdr, tja, tjb )
 
     -- Create connector list with cs/mux mappings
-    P.AddConnectors( hdr, { traw=ads1256_read, vref=2.048 },
+    P.addConnectors( hdr, { traw=ads1256_read, vref=2.048 },
         { conn="T1", tcs=hdr.CS0A, mux=0x01, cj=tja },
         { conn="T2", tcs=hdr.CS0A, mux=0x23, cj=tja },
         { conn="T3", tcs=hdr.CS0A, mux=0x45, cj=tja },
@@ -598,19 +599,44 @@ local function SetHeader( hdr, PN )
   end
 end
 
-P.TCCHeader = function ( pn ) SetHeader( M.TCC, pn ) end
+P.TCCHeader = function ( pn ) setHeader( M.TCC, pn ) end
 _G.TCCHeader = P.TCCHeader  -- EXPORT
 _G.EXP4Header = TCCHeader
-P.EXP1Header = function ( pn ) SetHeader( M.EXP1, pn ) end
+P.EXP1Header = function ( pn ) setHeader( M.EXP1, pn ) end
 _G.EXP1Header = P.EXP1Header  -- EXPORT
-P.EXP2Header = function ( pn ) SetHeader( M.EXP2, pn ) end
+P.EXP2Header = function ( pn ) setHeader( M.EXP2, pn ) end
 _G.EXP2Header = P.EXP2Header  -- EXPORT
-P.EXP3Header = function ( pn ) SetHeader( M.EXP3, pn ) end
+P.EXP3Header = function ( pn ) setHeader( M.EXP3, pn ) end
 _G.EXP3Header = P.EXP3Header  -- EXPORT
 
 
 -- For Users .conf files
 _G.Sensors = P.Sensors  -- EXPORT from pilib.c
+
+
+-- Update sensors with update() methods
+local function doUpdate( )
+  for i = 1, #Update do
+    Update[i]:update()
+  end
+  Update.last = P.gettime( )
+  if P.verbose() > 0 then
+    io.write( string.format( "# doUpdate( ) at %.6f\n", Update.last ) )
+  end
+end
+P.doUpdate = doUpdate
+
+local function tryUpdate( )
+  if Update.interval and P.gettime( Update.last ) < Update.interval then
+    -- Not time yet...
+    return
+  end
+  doUpdate( )
+end
+P.tryUpdate = tryUpdate
+
+-- Default interval
+Update.interval = 60  -- seconds
 
 
 pi = P -- ie. return P

@@ -72,12 +72,15 @@ luaL_Reg pi_funcs[] = {
          {"setled_main", pi_setled_main},
          {"gettime",     pi_gettime},
          {"filter",      pi_filter},
+         {"verbose",     pi_verbose},
+         {"debug",       pi_debug},
          {"Sensors",     pi_Sensors},
-         {"AddSensors",  pi_AddSensors},
-         {"AddConnectors", pi_AddConnectors},
+         {"addSensors",  pi_addSensors},
+         {"addConnectors", pi_addConnectors},
          {NULL, NULL},
          };
 
+/* FIXME: Not implemented yet ... */
 int pi_sc620_init(lua_State * L) { return 0 ; }
 
 int pi_setled_temp(lua_State * L) { return 0 ; }
@@ -121,10 +124,14 @@ int pi_register( lua_State *L )
    /* From global environment */
    lua_pushstring( L, ARGV0 );
    lua_setfield( L, -2, "ARGV0" );
-   lua_pushinteger( L, verbose );
-   lua_setfield( L, -2, "verbose" );
-   /* FIXME: Include debug when Lua gets usable bitwise operators */
-   /* FIXME: Also, need get/set methods for verbose and debug */
+
+   /* Debug bits for use with pi.debug() */
+   lua_pushlightuserdata( L, (void *)DBG_LUA );
+   lua_setfield( L, -2, "DBG_LUA" );
+   lua_pushlightuserdata( L, (void *)DBG_SPI );
+   lua_setfield( L, -2, "DBG_SPI" );
+   lua_pushlightuserdata( L, (void *)DBG_WAIT );
+   lua_setfield( L, -2, "DBG_WAIT" );
 
    /* Other constants?
    lua_pushlightuserdata( L, (void *)XXX );
@@ -247,19 +254,56 @@ int pi_filter(lua_State * L)
    return 1 ;
 }
 
-/* AddConnectors(...) creates connectors in the S table (partial sensor
+/* Functions to allow get/set of debug and test individual bits */
+int pi_debug( lua_State *L )
+{
+   if( lua_isnumber( L, 1 ) ) {
+      /* Set the global */
+      debug = lua_tointeger( L, 1 );
+   } else if( lua_islightuserdata( L, 1 ) ) {
+      /* Test bits */
+      int result = 0 ;
+      int arg = lua_gettop( L );
+      for( ; arg > 0 ; --arg ) {
+         luaL_checktype( L, arg, LUA_TLIGHTUSERDATA );
+         result = result || (debug & (unsigned int)lua_touserdata( L, arg ));
+      }
+      lua_pushboolean( L, result );
+   } else {
+      /* Get current value */
+      lua_pushnumber( L, debug );
+   }
+
+   /* return new value, or current value */
+   return 1 ;
+}
+
+/* Get/set the verbose global */
+int pi_verbose( lua_State *L )
+{
+   if( lua_isnumber( L, 1 ) ) {
+      verbose = lua_tointeger( L, 1 );
+   } else {
+      lua_pushnumber( L, verbose );
+   }
+
+   /* return new value, or current value */
+   return 1 ;
+}
+
+/* addConnectors(...) creates connectors in the S table (partial sensor
  *      objects) with the connector names, chip select info and
  *      bank settings for each.  An __index metatable is also
  *      set for each object to reduce duplication.
  *
- * pi_AddConnectors( hdr, index, ... )
+ * pi_addConnectors( hdr, index, ... )
  * @hdr -- Header object to which these sensors are connected
  * @index -- __index method for metatable with items common to all sensors
  * @... -- List of connector table objects
  * -----
  * @count -- Number of connectors processed
  */
-int pi_AddConnectors(lua_State * L)
+int pi_addConnectors(lua_State * L)
 {
    int  nargs = lua_gettop( L );
    int  haveMetatbl = 0 ;
@@ -362,7 +406,7 @@ int pi_AddConnectors(lua_State * L)
       lua_setfield( L, idx, "conn" );  /* Change conn field, use one copy */
       lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
       if( ! lua_isnil( L, -1 ) ) {
-         return luaL_error( L, "bad argument #%d to AddConnectors (duplicate connector name: %s)", idx, prefix );
+         return luaL_error( L, "bad argument #%d to addConnectors (duplicate connector name: %s)", idx, prefix );
       }
       lua_pop( L, 1 ); /* clean up gettable */
       lua_pushvalue( L, idx );
@@ -547,17 +591,17 @@ int pi_Sensors(lua_State * L)
    return 1 ;
 }
 
-/* AddSensors(...) does the same as Sensors, but only if a matching
+/* addSensors(...) does the same as Sensors, but only if a matching
  *      connector does NOT already exist.  This function effectively
- *      combines functions of both AddConnectors and Sensors
+ *      combines functions of both addConnectors and Sensors
  *
- * pi_AddSensors( hdr, ... )
+ * pi_addSensors( hdr, ... )
  * @hdr -- Header object to which these sensors are connected
  * @... -- List of complete connector/sensor table objects
  * -----
  * @count -- Number of objects processed
  */
-int pi_AddSensors(lua_State * L)
+int pi_addSensors(lua_State * L)
 {
    int  nargs = lua_gettop( L );
    char  prefix[16] ;
@@ -634,7 +678,7 @@ int pi_AddSensors(lua_State * L)
 
       lua_gettable( L, gbyName ); /* Does this conn name already exist?, use one copy */
       if( ! lua_isnil( L, -1 ) ) {
-         return luaL_error( L, "bad argument #%d to AddSensors (duplicate connector name: %s)", idx, prefix );
+         return luaL_error( L, "bad argument #%d to addSensors (duplicate connector name: %s)", idx, prefix );
       }
       lua_pop( L, 1 ); /* clean up gettable */
 
@@ -651,13 +695,13 @@ int pi_AddSensors(lua_State * L)
             lua_gettable( L, gTypes );  /* Replaces TOS */
             if( lua_isnil( L, -1 ) ) {
                /* Unrecognized Type */
-               return luaL_error( L, "bad argument #%d to AddSensors (%s is unrecognized type)", idx, *mn );
+               return luaL_error( L, "bad argument #%d to addSensors (%s is unrecognized type)", idx, *mn );
             }
             /* Replace value in table */
             lua_setfield( L, idx, *mn );  /* Cleans stack */
          } else if( ! lua_isnil( L, -1 ) && ! lua_isfunction( L, -1 ) ) {
             /* It exists, but is not usable */
-            return luaL_error( L, "bad argument #%d to AddSensors (%s is invalid value)", idx, *mn );
+            return luaL_error( L, "bad argument #%d to addSensors (%s is invalid value)", idx, *mn );
          } else {
             lua_pop( L, 1 );  /* Clean up getfield */
          }
@@ -669,7 +713,7 @@ int pi_AddSensors(lua_State * L)
       lua_settable( L, gS );
 
       if( gTypes != lua_gettop( L ) ) {
-         fprintf( stderr, "%s: INTERNAL ERROR: Stack push/pop mismatch in AddSensors: TOS is %d, should be %d\n", ARGV0, lua_gettop( L ), gTypes );
+         fprintf( stderr, "%s: INTERNAL ERROR: Stack push/pop mismatch in addSensors: TOS is %d, should be %d\n", ARGV0, lua_gettop( L ), gTypes );
       }
    }
 
