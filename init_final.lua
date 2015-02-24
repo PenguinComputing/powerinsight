@@ -268,7 +268,10 @@ local function MainCarrier ( s )
   if pn then M.PN = pn else pn = M.PN end
 
   -- Check for known MainCarrier parts
-  if tostring(pn) == "10020335" then
+  if tostring(pn) == "10020335"  -- Correct PN
+      or tostring(pn) == "10020334"  -- PWB PN on bottom of carrier
+      or tostring(pn) == "10020355"  -- Wrong PN from label on board
+    then
     -- PowerInsight v2.1
     -- Bank select hardware
     local spi1_bank = bank_new{
@@ -586,7 +589,8 @@ local function setHeader( hdr, PN )
         { conn="T8", tcs=hdr.CS0B, mux=0x78, pullup=10000 }
       )
 
-  elseif tostring(pn) == "100xxxxx" then
+
+--  elseif tostring(pn) == "100xxxxx" then
     -- Other carriers
     -- Powersensor Expansion
     -- Control Expansion
