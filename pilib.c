@@ -188,6 +188,7 @@ void luaPI_doerror( lua_State * L, int ret, const char * attempt )
       if( errstr != NULL ) {
          fprintf( stderr, "%s: %s\n", ARGV0, errstr );
       }
+      fflush( stderr );
       exit( 1 );
    }
 }
