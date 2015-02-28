@@ -60,6 +60,19 @@ int pidev_read_helper( char prefix, int portNumber, reading_t * sample )
    return pidev_read_byname( p, sample );
 }
 
+/* Set the library "global" values */
+PIEXPORT(pidev_setup)
+int pidev_setup( char * a, char * l, char * c, unsigned int d, int v )
+{
+   if( a != NULL ) { ARGV0 = a ; }
+   if( l != NULL ) { libexecdir = l ; }
+   if( c != NULL ) { configfile = c ; }
+   debug = d ;
+   verbose = v ;
+
+   return PIERR_SUCCESS ;
+}
+
 /* Open/init the library */
 PIEXPORT(pidev_open)
 int pidev_open( )
