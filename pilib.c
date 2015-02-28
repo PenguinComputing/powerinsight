@@ -255,6 +255,14 @@ int pi_filter(lua_State * L)
    return 1 ;
 }
 
+/* userdata is actually a pointer, but we use it to store
+ *      integer bitmasks of debug flags.  On 64-bit:
+ *              sizeof(void *) != sizeof(unsigned int)
+ *      so this generates a false warning.  So disable
+ *      the warning here
+ */
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+
 /* Functions to allow get/set of debug and test individual bits */
 int pi_debug( lua_State *L )
 {
