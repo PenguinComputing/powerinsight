@@ -100,12 +100,14 @@ P.ads1256_read = ads1256_read
 local function mcp3008_read( cs, mux )
   return P.mcp3008_getraw(P.spi_message(cs.spi.fd, P.mcp3008_mkmsg(mux)))
 end
+P.mcp3008_read = mcp3008_read
 
 local function bbwain_read( cs, mux )
   local f = cs.file[mux]
   f:seek("set")
   return f:read("*n")
 end
+P.bbwain_read = bbwain_read
 
 -- Filter factory for the above XXX_read functions (readfn)
 local function filter_factory( f, readfn )
@@ -121,6 +123,21 @@ P.cache_factory = cache_factory
 -- Read the cache (either filtered or update when requested
 local function cache_read( cs, mux ) return cs[mux] end
 P.cache_read = cache_read
+
+-- Only read once every n times
+local function everyn_factory( n, readfn )
+  local  count = 0  -- Lua ROCKS! (closure with private data)
+  return function (cs, mux)
+      if count > 0 then
+        count = count - 1
+      else
+        count = n
+        cs[mux] = readfn( cs, mux )
+      end
+      return cs[mux]
+    end
+end
+P.everyn_factory = everyn_factory
 
 -- Object meta-functions for BANK and SPI objects
 local bank_mt
