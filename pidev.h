@@ -20,6 +20,15 @@ typedef struct {
     double  amp ;  /* Amperage component */
 } reading_t ;
 
+/* Change default global parameters.  Call before calling pidev_open */
+int pidev_setup(
+        char * ARGV0,  /* printed in error messages */
+        char * LIBEXECDIR,  /* location of xxx.lc files */
+        char * CONFIGFILE,  /* sensor config file */
+        unsigned int DEBUG,  /* debug flags for debug messages */
+        int VERBOSE  /* Increase verbosity */
+    );
+
 /* Call to initialize the library, MUST be called before read, etc. */
 int pidev_open( void );
 
