@@ -132,6 +132,8 @@ int pi_register( lua_State *L )
    lua_setfield( L, -2, "DBG_SPI" );
    lua_pushlightuserdata( L, (void *)DBG_WAIT );
    lua_setfield( L, -2, "DBG_WAIT" );
+   lua_pushlightuserdata( L, (void *)DBG_PIDEV );
+   lua_setfield( L, -2, "DBG_PIDEV" );
 
    /* Other constants?
    lua_pushlightuserdata( L, (void *)XXX );

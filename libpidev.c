@@ -168,14 +168,24 @@ int pidev_read_byname( char * name, reading_t * sample )
 {
    if( sample == NULL ) { return PIERR_NOSAMPLE ; }
 
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: read_byname( '%s', %p )\n", name, sample );
+      fflush( stderr );
+   }
+
    /* Clean the stack */
    lua_settop( L, 0 );
 
    /* pi.tryUpdate( )  globals */
    lua_getfield( L, LUA_GLOBALSINDEX, "pi" );
    lua_getfield( L, -1, "tryUpdate" );
-   lua_call( L, 0, 0 );
-   lua_pop( L, 1 );
+   if( debug & DBG_PIDEV ) { fprintf( stderr, "DBG: Calling tryUpdate ..." ); }
+   lua_pcall( L, 0, 0, 0 );
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, " Done\n" );
+      fflush( stderr );
+   }
+   lua_pop( L, 1 ); /* pi */
 
    /* The name index */
    lua_getfield( L, LUA_GLOBALSINDEX, "byName" );
@@ -183,17 +193,39 @@ int pidev_read_byname( char * name, reading_t * sample )
    /* byName[name] */
    lua_getfield( L, -1, name );
    if( lua_isnil( L, -1 ) ) {
+      if( debug & DBG_PIDEV ) {
+         fprintf( stderr, "DBG: read_byname: '%s' not found\n", name );
+      }
       return PIERR_NOTFOUND ;
+   }
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: byName.%s is %s\n",
+            name,
+            lua_typename( L, lua_type( L, -1 ) )
+         );
    }
 
    /* Look for a method to run */
 
    /* power */
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: Looking for byName.%s.%s\n",
+            name, piMethodNames[PIMN_POWER]
+         );
+   }
    lua_getfield( L, -1, piMethodNames[PIMN_POWER] );
    if( lua_isfunction( L, -1 ) ) {
+      if( debug & DBG_PIDEV ) {
+         fprintf( stderr, "DBG: Found %s as %s\n",
+               piMethodNames[PIMN_POWER],
+               lua_typename( L, lua_type( L, -1 ) )
+            );
+      }
       /* Found method:  p, v, a = s:power( ) */
-      lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 3 );
+      lua_replace( L, -3 );  /* Replace byName in the stack */
+      if( lua_pcall( L, 1, 3, 0 ) != 0 ) {
+         goto failure ;
+      }
 
       if( lua_isnumber( L, -3 ) ) {
          sample->watt = lua_tonumber( L, -3 );
@@ -214,12 +246,56 @@ int pidev_read_byname( char * name, reading_t * sample )
    }
    lua_pop( L, 1 ); /* Clean up */
 
+   /* temp */
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: Looking for byName.%s.%s\n",
+            name, piMethodNames[PIMN_TEMP]
+         );
+   }
+   lua_getfield( L, -1, piMethodNames[PIMN_TEMP] );
+   if( lua_isfunction( L, -1 ) ) {
+      if( debug & DBG_PIDEV ) {
+         fprintf( stderr, "DBG: Found %s as %s\n",
+               piMethodNames[PIMN_TEMP],
+               lua_typename( L, lua_type( L, -1 ) )
+            );
+      }
+      /* Found method:  v = s:temp( ) */
+      lua_replace( L, -3 );  /* Replace byName in the stack */
+      if( lua_pcall( L, 1, 1, 0 ) != 0 ) {
+         goto failure ;
+      }
+
+      if( lua_isnumber( L, -1 ) ) {
+         sample->temp = lua_tonumber( L, -1 );
+      } else {
+         sample->temp = NAN ;
+      }
+      sample->volt = sample->amp = NAN ;
+
+      goto success ;
+   }
+   lua_pop( L, 1 ); /* Clean up */
+
    /* volt */
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: Looking for byName.%s.%s\n",
+            name, piMethodNames[PIMN_VOLT]
+         );
+   }
    lua_getfield( L, -1, piMethodNames[PIMN_VOLT] );
    if( lua_isfunction( L, -1 ) ) {
+      if( debug & DBG_PIDEV ) {
+         fprintf( stderr, "DBG: Found %s as %s\n",
+               piMethodNames[PIMN_VOLT],
+               lua_typename( L, lua_type( L, -1 ) )
+            );
+      }
       /* Found method:  v = s:volt( ) */
-      lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1 );
+      lua_replace( L, -3 );  /* Replace byName in the stack */
+      if( lua_pcall( L, 1, 1, 0 ) != 0 ) {
+         goto failure ;
+      }
 
       if( lua_isnumber( L, -1 ) ) {
          sample->volt = lua_tonumber( L, -1 );
@@ -234,11 +310,24 @@ int pidev_read_byname( char * name, reading_t * sample )
    lua_pop( L, 1 ); /* Clean up */
 
    /* amp */
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: Looking for byName.%s.%s\n",
+            name, piMethodNames[PIMN_AMP]
+         );
+   }
    lua_getfield( L, -1, piMethodNames[PIMN_AMP] );
    if( lua_isfunction( L, -1 ) ) {
+      if( debug & DBG_PIDEV ) {
+         fprintf( stderr, "DBG: Found %s as %s\n",
+               piMethodNames[PIMN_AMP],
+               lua_typename( L, lua_type( L, -1 ) )
+            );
+      }
       /* Found method:  v = s:amp( ) */
-      lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1 );
+      lua_replace( L, -3 );  /* Replace byName in the stack */
+      if( lua_pcall( L, 1, 1, 0 ) != 0 ) {
+         goto failure ;
+      }
 
       if( lua_isnumber( L, -1 ) ) {
          sample->amp = lua_tonumber( L, -1 );
@@ -252,30 +341,25 @@ int pidev_read_byname( char * name, reading_t * sample )
    }
    lua_pop( L, 1 ); /* Clean up */
 
-   /* temp */
-   lua_getfield( L, -1, piMethodNames[PIMN_TEMP] );
-   if( lua_isfunction( L, -1 ) ) {
-      /* Found method:  v = s:temp( ) */
-      lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1 );
-
-      if( lua_isnumber( L, -1 ) ) {
-         sample->temp = lua_tonumber( L, -1 );
-      } else {
-         sample->temp = NAN ;
-      }
-      sample->volt = sample->amp = NAN ;
-
-      goto success ;
-   }
-   lua_pop( L, 1 ); /* Clean up */
-
    /* reading */
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: Looking for byName.%s.%s\n",
+            name, piMethodNames[PIMN_READING]
+         );
+   }
    lua_getfield( L, -1, piMethodNames[PIMN_READING] );
    if( lua_isfunction( L, -1 ) ) {
+      if( debug & DBG_PIDEV ) {
+         fprintf( stderr, "DBG: Found %s as %s\n",
+               piMethodNames[PIMN_READING],
+               lua_typename( L, lua_type( L, -1 ) )
+            );
+      }
       /* Found method:  v = s:reading( ) */
-      lua_replace( L, -2 );  /* Replace byName in the stack */
-      lua_call( L, 1, 1 );
+      lua_replace( L, -3 );  /* Replace byName in the stack */
+      if( lua_pcall( L, 1, 1, 0 ) != 0 ) {
+         goto failure ;
+      }
 
       if( lua_isnumber( L, -1 ) ) {
          sample->reading = lua_tonumber( L, -1 );
@@ -288,11 +372,18 @@ int pidev_read_byname( char * name, reading_t * sample )
    }
    /* lua_pop( L, 1 );  -* Clean up */
 
+failure:
    /* No method found */
    sample->reading = sample->volt = sample->amp = NAN ;
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: read_byname returning NOTFOUND\n" );
+   }
    return PIERR_NOTFOUND ;
 
 success:
+   if( debug & DBG_PIDEV ) {
+      fprintf( stderr, "DBG: read_byname returning SUCCESS\n" );
+   }
    return PIERR_SUCCESS ;
 }
 
