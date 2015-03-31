@@ -317,6 +317,10 @@ int pi_spi_message(lua_State * L)
       crxbuf += msgs[cmsg].len ;
    }
 
+   /* Drop the allocated SPI and rx_buf's */
+   free( rxbufs );
+   free( msgs );
+
    /* Drop the tx_buf strings */
    lua_settop( L, narg );
 

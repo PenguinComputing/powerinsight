@@ -1,10 +1,11 @@
 #include "pidev.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <malloc.h>
 
 int main(){
     int result;
-    int i;
+    int i, j;
     reading_t reading;
 
     printf("setup\n");
@@ -15,36 +16,43 @@ int main(){
     printf("opened, result=%d\n", result);
     if(result!=PIERR_SUCCESS) { exit(1) ; }
 
-    for(i=1;i<=15;i++){
-        printf("reading %d\n", i);
-        result=pidev_read(i, &reading);
-	switch(result) {
-	case PIERR_SUCCESS :
-            printf("%2d => %7.3f\n",i,reading.reading);
-            break ;
-        case PIERR_NOTFOUND :
-            printf("%2d => NOT FOUND\n",i);
-            break ;
-        default :
-            printf("%2d => ERR %d\n",i,result);
-            break ;
-        }
-    }
+    malloc_stats();
 
-    for(i=1;i<=8;i++){
-        printf("reading temp %d\n", i);
-        result=pidev_temp(i, &reading);
-	switch(result) {
-	case PIERR_SUCCESS :
-            printf("%2d => %7.3f\n",i,reading.reading);
-            break ;
-        case PIERR_NOTFOUND :
-            printf("%2d => NOT FOUND\n",i);
-            break ;
-        default :
-            printf("%2d => ERR %d\n",i,result);
-            break ;
+    for(j=1;j<=1000;j++){
+        for(i=1;i<=15;i++){
+            printf("reading %d\n", i);
+            result=pidev_read(i, &reading);
+            switch(result) {
+            case PIERR_SUCCESS :
+                printf("%2d => %7.3f\n",i,reading.reading);
+                break ;
+            case PIERR_NOTFOUND :
+                printf("%2d => NOT FOUND\n",i);
+                break ;
+            default :
+                printf("%2d => ERR %d\n",i,result);
+                break ;
+            }
         }
+
+        for(i=1;i<=8;i++){
+            printf("reading temp %d\n", i);
+            result=pidev_temp(i, &reading);
+            switch(result) {
+            case PIERR_SUCCESS :
+                printf("%2d => %7.3f\n",i,reading.reading);
+                break ;
+            case PIERR_NOTFOUND :
+                printf("%2d => NOT FOUND\n",i);
+                break ;
+            default :
+                printf("%2d => ERR %d\n",i,result);
+                break ;
+            }
+        }
+
+        malloc_stats( );
+        sleep( 1 );
     }
 
     return 0 ;
