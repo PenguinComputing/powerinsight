@@ -264,10 +264,9 @@ int pi_rt2temp_PTS(lua_State * L)
 
    if( Rt_R0 < 0.8 || Rt_R0 > 1.6 ) {
       /* Out of range [-51,155] */
+      temp = NAN ;
 #ifdef RANGE2ERROR
       return luaL_error( L, "bad arguments #1, #2 to rt2temp_PTS (Rt/R0 out of range [%g, %g])", 0.8, 1.6 );
-#else
-      temp = NAN ;
 #endif
    } else {
       /* Good enough (<.5LSB) for 16 bits w/10k pullup from -50 to 155 */
@@ -299,5 +298,95 @@ int pi_temp2rt_PTS(lua_State * L)
 
    return 1 ;
 }
+
+
+/**********
+ * Coefficients from datasheet for 44004 R25degC resistor with R25 = 2252 Ohms
+ */
+
+/* Steinhart-Hart Equation Constants for 44004 (2252 Ohm @ 25degC) +/- 0.2degC
+ *
+ *  T = 1/(A + B * ln(R) + C * ln(R)^3  (NOTE: T is in deg Kelvin, or "deg C + 273.15")
+ *
+ *  The inverse equation for Temp to Resistance is hairy with cube roots, exponentiation
+ *     and other nasties...  We don't actually /need/ it.  Look it up on Wikipedia or other
+ *     references if that changes
+ */
+#define R25_A  1.468E-3
+#define R25_B  2.383E-4
+#define R25_C  1.007E-7
+#define R25_R  2252
+#define R25_K  273.15
+
+/* And actually, we came up with our own approximations using polynomials with
+ *    the pullup resistor (1.820k) baked into the formulas
+ *
+ * 1820 Ohm pullup with .1% accuracy.
+ *   Rt = 1820 * counts / (MaxCount - counts)
+ *
+ * Using a ratio reading [0,1) for "counts"
+ *   Rt = 1820 * reading / (1 - reading)
+ */
+
+/* This thermistor has a -80 to 120 deg C Working Temp
+ * But our counts to temp and back approximations are only
+ *    accurate over -10 to 80 degC
+ */
+#define neg44004LIMIT -10.0
+#define pos44004LIMIT 80.0
+#define neg44004READING 550.0
+#define pos44004READING 3600.0
+
+/* pi_rt2temp_44004( reading ) -- Convert reading to temperature, Thermistor
+ * @reading -- Ratio of Vref reading [0,1) for resistor divider (pullup over Rt)
+ * --------
+ * Returns temperature in degC
+ */
+int pi_rt2temp_44004(lua_State * L)
+{
+   lua_Number  reading ;
+   lua_Number  temp ;
+
+   reading = luaL_checknumber( L, 1 );
+   luaL_argcheck( L, reading >= 0.0 && reading < 1.0, 1, "out of range [0,1)" );
+
+   /* We use a set of coefficents fit to readings from 500 to 3600 of 4096 counts */
+   reading *= 4096.0 ;
+   if( reading > pos44004READING || reading < neg44004READING ) {
+      temp = NAN ;
+#ifdef RANGE2ERROR
+      return luaL_error( L, "argument #1 to rt2temp_44004 exceeds accuracy range [%g, %g]", neg44004READING, pos44004READING );
+#endif
+   } else {
+      /* These values produce results with less than +/- 0.3 degC errors and assume 1820 Ohm pullup to 2252 Ohm thermistor */
+      temp = 79.2012 - 0.0236906 * reading - 3.17644E-9 * (reading-2914.01)*(reading-2587.64)*(reading-1404.34) ;
+   }
+
+   lua_pushnumber( L, temp );
+   return 1 ;
+}
+
+
+/* pi_temp2rt_44004( temp ) -- Convert temperature to resistance of thermistor
+ * @temp -- Temperature in degC
+ * --------
+ * Returns resistance Rt
+ */
+int pi_temp2rt_44004(lua_State * L)
+{
+   lua_Number  temp ;
+
+   temp = luaL_checknumber( L, 1 );
+   luaL_argcheck( L, temp >= neg44004LIMIT && temp <= pos44004LIMIT, 1, "out of range [" tostr(neg44004LIMIT) "," tostr(pos44004LIMIT) "]" );
+
+   /* These factors determined by exploring polynomial approximations of the SH equations in log/linear scale
+    * For the given range of -10 to 80, they are good for better than +/- 1% error in resistance
+    */
+   temp += 273.15 ;  /* temp in Kelvin */
+   lua_pushnumber( L, exp(22.2333 - 0.0488149*temp + 0.125765E-3*(temp-278.335)*(temp-281.323) ) );
+
+   return 1 ;
+}
+
 
 /* ex: set sw=3 sta et : */

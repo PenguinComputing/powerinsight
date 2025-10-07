@@ -68,6 +68,8 @@ luaL_Reg pi_funcs[] = {
          {"temp2volt_K", pi_temp2volt_K},
          {"rt2temp_PTS", pi_rt2temp_PTS},
          {"temp2rt_PTS", pi_temp2rt_PTS},
+         {"rt2temp_44004", pi_rt2temp_44004},
+         {"temp2rt_44004", pi_temp2rt_44004},
          {"setled_temp", pi_setled_temp},
          {"setled_main", pi_setled_main},
          {"gettime",     pi_gettime},

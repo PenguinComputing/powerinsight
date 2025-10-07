@@ -213,6 +213,9 @@ local function temp_typeK ( s ) return P.volt2temp_K( s.traw(s.tcs,s.mux)*s.vref
 _G.temp_typeK = temp_typeK
 local function temp_PTS ( s ) return P.rt2temp_PTS( s.traw(s.tcs,s.mux), s.pullup ) end
 _G.temp_PTS = temp_PTS
+local function temp_44004 ( s ) return P.rt2temp_44004( s.araw(s.acs,s.mux), s.pullup ) end
+_G.temp_44004 = temp_44004
+
 local function power( s ) local v = s:volt() ; local a = s:amp() ; return v*a, v, a end
 _G.power = power
 
@@ -229,6 +232,7 @@ Types = { ["12v"] = volt_12v, ["12"] = volt_12v,
           shunt50 = amp_shunt50,
           typeK = temp_typeK,
           PTS = temp_PTS,
+          Rt44004 = temp_44004,
           power = power
         }
 
