@@ -15,12 +15,16 @@ do
 
 -- Default App function
   local function defaultApp (...)
+    -- Get program arguments
     local args = { ... }
+
     if #args == 0 then
       -- No arguments, read and display every named sensor
       for k, s in ipairs( S ) do
-        if s.name ~= nil then
+        if s.name ~= nil and s.name ~= "" then
           table.insert( args, s.name )
+        elseif not string.find(s.conn, "^[JT]") then
+          table.insert( args, s.conn )
         end
       end
     end
@@ -33,7 +37,7 @@ do
       if s == nil then
         io.write( string.format( "%-10s NOT FOUND\n", v ) )
       elseif s.temp ~= nil then
-        io.write( string.format( "%-10s %7.2f degC\n", v, s:temp( ) ) )
+        io.write( string.format( "%-10s %8.2f degC\n", v, s:temp( ) ) )
       elseif s.volt ~= nil and s.amp ~= nil then
         io.write( string.format( "%-10s %8.3f Watts [ %7.3f Volts %7.3f Amps ]\n", v, s:power( ) ) )
       elseif s.volt ~= nil and s.amp == nil then
